@@ -1,0 +1,1 @@
+Restaura o build apos o merge b028a73: remove campos StreamSubscription orfaos do controller, devolve filtrarPorCliente, corrige await sincrono, liga o contexto da operacao ao assistente e restaura a entrada Assistente IA no drawer do Admin. Versao Firestore preservada em feat/firestore-realtime-ai.
