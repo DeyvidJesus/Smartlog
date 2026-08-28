@@ -7,19 +7,43 @@ import {
 import { describe, it, expect } from "vitest";
 import worker from "../src";
 
-describe("Hello World worker", () => {
-	it("responds with Hello World! (unit style)", async () => {
-		const request = new Request("http://example.com");
-		// Create an empty context to pass to `worker.fetch()`.
+describe("SmartLog AI Worker", () => {
+	it("retorna 404 para endpoints inexistentes", async () => {
+		const request = new Request("http://example.com/");
 		const ctx = createExecutionContext();
 		const response = await worker.fetch(request, env, ctx);
-		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
 		await waitOnExecutionContext(ctx);
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+		expect(response.status).toBe(404);
+		const data = await response.json();
+		expect(data.erro).toContain("Endpoint não encontrado");
 	});
 
-	it("responds with Hello World! (integration style)", async () => {
-		const response = await SELF.fetch("http://example.com");
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+	it("retorna 405 para GET /chat", async () => {
+		const request = new Request("http://example.com/chat", { method: "GET" });
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(response.status).toBe(405);
+	});
+
+	it("retorna 204 para OPTIONS /chat (CORS)", async () => {
+		const request = new Request("http://example.com/chat", { method: "OPTIONS" });
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(response.status).toBe(204);
+	});
+
+	it("retorna 401 para POST /chat sem token", async () => {
+		const request = new Request("http://example.com/chat", {
+			method: "POST",
+			body: JSON.stringify({ pergunta: "Qual o status?" }),
+		});
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
+		expect(response.status).toBe(401);
+		const data = await response.json();
+		expect(data.erro).toContain("Autenticação obrigatória");
 	});
 });
