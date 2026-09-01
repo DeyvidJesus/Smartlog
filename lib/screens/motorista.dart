@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:mobile_scanner/mobile_scanner.dart'; // 👈 Importação do Scanner de Câmera
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/auth_controller.dart';
 import 'chat_assistente.dart';
@@ -43,7 +43,18 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
     }
 
     final String motoristaUid = FirebaseAuth.instance.currentUser?.uid ?? "";
-    final rotasDoMotorista = controller.entregas.where((e) => e['motoristaUid'] == motoristaUid).toList();
+
+    // Converte e filtra com tipagem estrita List<Map<String, dynamic>>
+    final List<Map<String, dynamic>> rotasDoMotorista = controller.entregas
+        .where((e) {
+      final map = e is Map ? e : (e as dynamic).toJson();
+      final uid = map['motoristaUid']?.toString() ?? '';
+      final regiao = map['regiao']?.toString().toLowerCase() ?? '';
+      return uid == motoristaUid ||
+          (widget.regiaoDesignada != "Não Definida" && regiao.contains(widget.regiaoDesignada.toLowerCase()));
+    })
+        .map((e) => Map<String, dynamic>.from(e is Map ? e : (e as dynamic).toJson()))
+        .toList();
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FA),
@@ -103,7 +114,6 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
           ],
         ),
       ),
-      // 🔥 GATILHO COMPERCIAL: Botão de Câmera flutuante rápido para o motorista bipar encomendas na rua
       floatingActionButton: _abaAtual == "Minha Rota"
           ? FloatingActionButton.extended(
         backgroundColor: const Color(0xff0F172A),
@@ -149,7 +159,7 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
   // 1. VISÃO DAS PARADAS ATIVAS
   Widget _buildMinhaRotaView(List<Map<String, dynamic>> rotas, DashboardController controller) {
     final paradasAtivas = rotas.where((e) => e['status'] != 'Entregue').toList();
-    paradasAtivas.sort((a, b) => (a['ordemEntrega'] ?? 0).compareTo(b['ordemEntrega'] ?? 0));
+    paradasAtivas.sort((a, b) => (a['ordemEntrega'] ?? 0).toString().compareTo((b['ordemEntrega'] ?? 0).toString()));
 
     return Padding(
       key: const ValueKey("MinhaRotaView"),
@@ -163,7 +173,10 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
               const Text("Paradas Sequenciadas", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff0F172A))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Text("${paradasAtivas.length} pendentes", style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12)),
               )
             ],
@@ -185,7 +198,7 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
               itemCount: paradasAtivas.length,
               itemBuilder: (context, index) {
                 final parada = paradasAtivas[index];
-                final status = parada['status'] ?? 'Pendente';
+                final status = parada['status']?.toString() ?? 'Pendente';
 
                 return Card(
                   color: Colors.white,
@@ -194,13 +207,21 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: status == 'A Caminho' ? Colors.blue.withValues(alpha: 0.15) : Colors.orange.withValues(alpha: 0.15),
-                      child: Text("${parada['ordemEntrega'] ?? (index + 1)}", style: TextStyle(color: status == 'A Caminho' ? Colors.blue : Colors.orange, fontWeight: FontWeight.bold)),
+                      backgroundColor: status == 'Em Rota' || status == 'A Caminho'
+                          ? Colors.blue.withOpacity(0.15)
+                          : Colors.orange.withOpacity(0.15),
+                      child: Text(
+                        "${parada['ordemEntrega'] ?? (index + 1)}",
+                        style: TextStyle(
+                          color: status == 'Em Rota' || status == 'A Caminho' ? Colors.blue : Colors.orange,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
-                    title: Text(parada['endereco'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    title: Text(parada['endereco']?.toString() ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 4.0),
-                      child: Text("Cliente: ${parada['cliente']}\nStatus: $status"),
+                      child: Text("Cliente: ${parada['cliente'] ?? 'Geral'}\nStatus: $status"),
                     ),
                     trailing: const Icon(Icons.qr_code, color: Colors.grey, size: 20),
                   ),
@@ -215,7 +236,7 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
 
   // 📷 MODAL INJETOR DO SCANNER DE CÂMERA EM TEMPO REAL
   void _abrirCameraScanner(BuildContext context, DashboardController controller) {
-    bool processandoBip = false; // Flag anti-bipagem dupla sequencial
+    bool processandoBip = false;
 
     showModalBottomSheet(
       context: context,
@@ -239,30 +260,24 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
               if (barcodes.isNotEmpty && barcodes.first.rawValue != null) {
                 processandoBip = true;
 
-                // 🔗 CAPTURA O LINK COMPLETO (Ex: https://smartlog.com/ENT-A8F31)
                 final String linkCompleto = barcodes.first.rawValue!;
-
-                // ✂️ TRUQUE MÁGICO: Corta o link para pegar só o ID que está depois da última barra "/"
                 String entregaIdDecodificado = linkCompleto;
                 if (linkCompleto.contains('/')) {
                   entregaIdDecodificado = linkCompleto.split('/').last.trim();
                 }
 
-                Navigator.pop(context); // Fecha o leitor da câmera imediatamente
+                Navigator.pop(context);
 
-                // Dispara a triagem da máquina de estados do controller usando só o ID cortado!
                 String? resposta = await controller.registrarBipQRCode(entregaId: entregaIdDecodificado);
 
                 if (!mounted) return;
 
-                if (resposta == "EM_TRANSITO") {
-                  _mostrarSnackBar(context, "Pacote $entregaIdDecodificado bipado! Status alterado para: Em trânsito 🚚", Colors.blue);
-                } else if (resposta == "REQUISITAR_RECEBEDOR") {
+                if (resposta != null && resposta.contains("Em Rota")) {
+                  _mostrarSnackBar(context, "Pacote $entregaIdDecodificado bipado! Status alterado para: Em Rota 🚚", Colors.blue);
+                } else if (resposta != null && (resposta.contains("concluída") || resposta.contains("recebedor"))) {
                   _modalColetaRecebedor(context, controller, entregaIdDecodificado);
-                } else if (resposta == "JA_ENTREGUE") {
-                  _mostrarSnackBar(context, "Atenção: Este pacote já foi entregue anteriormente.", Colors.orange);
                 } else {
-                  _mostrarSnackBar(context, "Código inválido ou não pertencente a esta empresa.", Colors.red);
+                  _mostrarSnackBar(context, resposta ?? "Código processado com sucesso.", Colors.orange);
                 }
               }
             },
@@ -272,7 +287,7 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
     );
   }
 
-  // 📝 MODAL AUTOMÁTICO DE COLETA DE RECEBEDOR (CHAMADO NO BIP 2)
+  // 📝 MODAL AUTOMÁTICO DE COLETA DE RECEBEDOR
   void _modalColetaRecebedor(BuildContext context, DashboardController controller, String entregaId) {
     final recebedorCtrl = TextEditingController();
     final popupKey = GlobalKey<FormState>();
@@ -293,7 +308,7 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Destinatário localizado! Informe o nome de quem está recebendo o pacote corporativo:", style: TextStyle(fontSize: 13, color: Colors.grey)),
+              const Text("Destinatário localizado! Informe o nome de quem está recebendo o pacote:", style: TextStyle(fontSize: 13, color: Colors.grey)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: recebedorCtrl,
@@ -310,16 +325,15 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xff0F172A), foregroundColor: Colors.white),
             onPressed: () async {
               if (popupKey.currentState!.validate()) {
-                Navigator.pop(context); // Fecha o popup
+                Navigator.pop(context);
 
-                // Envia a confirmação final com o nome anexado
                 String? fim = await controller.registrarBipQRCode(
                   entregaId: entregaId,
                   nomeRecebedor: recebedorCtrl.text.trim(),
                 );
 
-                if (fim == "FINALIZADO" && context.mounted) {
-                  _mostrarSnackBar(context, "Entrega $entregaId confirmada com sucesso! Protocolo fechado.", Colors.green);
+                if (context.mounted) {
+                  _mostrarSnackBar(context, fim ?? "Entrega confirmada com sucesso!", Colors.green);
                 }
               }
             },
@@ -356,8 +370,8 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
                   color: Colors.white,
                   child: ListTile(
                     leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
-                    title: Text(item['endereco'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text("Cliente: ${item['cliente']}\nRecebedor: ${item['recebedor'] ?? 'Não informado'}"),
+                    title: Text(item['endereco']?.toString() ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: Text("Cliente: ${item['cliente'] ?? 'Geral'}\nRecebedor: ${item['recebedor'] ?? 'Não informado'}"),
                     trailing: const Text("Concluído", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 );

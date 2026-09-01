@@ -1,4 +1,5 @@
-class Cliente {
+// lib/models/cliente_model.dart
+class ClienteModel {
   final String id;
   final String nome;
   final String telefone;
@@ -8,7 +9,7 @@ class Cliente {
   final String cep;
   final DateTime dataCadastro;
 
-  Cliente({
+  ClienteModel({
     required this.id,
     required this.nome,
     required this.telefone,
@@ -19,8 +20,8 @@ class Cliente {
     required this.dataCadastro,
   });
 
-  factory Cliente.fromJson(Map<String, dynamic> json) {
-    return Cliente(
+  factory ClienteModel.fromJson(Map<String, dynamic> json) {
+    return ClienteModel(
       id: json['id'] ?? '',
       nome: json['nome'] ?? '',
       telefone: json['telefone'] ?? '',
@@ -47,7 +48,7 @@ class Cliente {
     };
   }
 
-  Cliente copyWith({
+  ClienteModel copyWith({
     String? id,
     String? nome,
     String? telefone,
@@ -57,7 +58,7 @@ class Cliente {
     String? cep,
     DateTime? dataCadastro,
   }) {
-    return Cliente(
+    return ClienteModel(
       id: id ?? this.id,
       nome: nome ?? this.nome,
       telefone: telefone ?? this.telefone,

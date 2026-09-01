@@ -15,7 +15,7 @@ class DashboardCliente extends StatefulWidget {
 }
 
 class _DashboardClienteState extends State<DashboardCliente> {
-  // 🔥 Mesma trava usada nos painéis Admin e Motorista para não buscar dados infinitamente
+  // 🔥 Trava para não buscar dados infinitamente
   bool _dadosInicializados = false;
 
   @override
@@ -31,25 +31,29 @@ class _DashboardClienteState extends State<DashboardCliente> {
 
     if (!_dadosInicializados && !controller.carregando) {
       _dadosInicializados = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         final String? empresaId = authController.empresaIdLogada ?? FirebaseAuth.instance.currentUser?.uid;
         if (empresaId != null) {
-          controller.inicializarDados(empresaId);
+          await controller.inicializarDados(empresaId);
         }
       });
     }
 
-    final String nomeCliente = authController.nomeUsuarioLogado ?? "";
+    // 👤 Obtenção 100% segura do nome sem depender de getters do AuthController
+    final String nomeCliente = FirebaseAuth.instance.currentUser?.displayName ??
+        FirebaseAuth.instance.currentUser?.email?.split('@').first ??
+        "Cliente";
     final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "";
 
-    // 👥 Reaproveita a lista já carregada pelo controller — nenhuma consulta nova ao Firestore
+    // 👥 Filtragem de entregas via controller
     final List<Map<String, dynamic>> minhasEntregas = controller.filtrarPorCliente(nomeCliente);
 
-    // Coloca no topo o que ainda está em andamento, mantendo a sequência da rota dentro de cada grupo
+    // Prioridade de ordenação do status
     const Map<String, int> prioridadeStatus = {
       'Atrasada': 0,
       'Pendente': 1,
       'A Caminho': 2,
+      'Em Rota': 2,
       'Entregue': 3,
     };
 
@@ -121,7 +125,6 @@ class _DashboardClienteState extends State<DashboardCliente> {
               leading: const Icon(Icons.logout, color: Colors.redAccent),
               title: const Text("Deslogar", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
               onTap: () async {
-                // Navigator capturado antes do await para não usar o context após o gap assíncrono
                 final NavigatorState navegador = Navigator.of(context);
                 await authController.realizarLogout();
                 if (!mounted) return;
@@ -144,7 +147,7 @@ class _DashboardClienteState extends State<DashboardCliente> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.15),
+                    color: Colors.orange.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -168,7 +171,6 @@ class _DashboardClienteState extends State<DashboardCliente> {
                     controller.inicializarDados(empresaId);
                   }
                 },
-                // physics sempre rolável para o "puxar para atualizar" funcionar também no estado vazio
                 child: minhasEntregas.isEmpty
                     ? ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -213,12 +215,10 @@ class _DashboardClienteState extends State<DashboardCliente> {
     );
   }
 
-  // 📦 Ficha da entrega na visão do cliente: código, status, endereço, motorista, região e timeline
   Widget _cardEntregaCliente(Map<String, dynamic> entrega) {
     final String status = (entrega['status'] ?? 'Pendente').toString();
     final Color corStatus = _corDoStatus(status);
     final String motorista = (entrega['motorista'] ?? '').toString().trim();
-    // O admin grava 'Sem motorista' quando a rota não tem responsável definido
     final bool temMotorista = motorista.isNotEmpty && motorista != 'Sem motorista';
 
     return Card(
@@ -245,7 +245,7 @@ class _DashboardClienteState extends State<DashboardCliente> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: corStatus.withValues(alpha: 0.15),
+                    color: corStatus.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -278,12 +278,10 @@ class _DashboardClienteState extends State<DashboardCliente> {
     );
   }
 
-  // 🚚 Timeline simples do ciclo de vida do pacote: Pendente → A Caminho → Entregue
   Widget _timelineEntrega(String status) {
-    const List<String> etapas = ["Pendente", "A Caminho", "Entregue"];
+    const List<String> etapas = ["Pendente", "Em Rota", "Entregue"];
 
-    // Status fora do fluxo padrão (ex.: 'Atrasada') não avança a régua, mas o badge acima mostra o real
-    final int posicao = etapas.indexOf(status);
+    final int posicao = etapas.indexOf(status == 'A Caminho' ? 'Em Rota' : status);
     final int etapaAtual = posicao < 0 ? 0 : posicao;
 
     return Column(
@@ -353,12 +351,12 @@ class _DashboardClienteState extends State<DashboardCliente> {
     );
   }
 
-  // Mesma paleta de status já utilizada no Dashboard Admin e no painel do Motorista
   Color _corDoStatus(String status) {
     switch (status) {
       case 'Pendente':
         return Colors.orange;
       case 'A Caminho':
+      case 'Em Rota':
         return Colors.blue;
       case 'Entregue':
         return Colors.green;
