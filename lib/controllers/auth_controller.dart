@@ -18,43 +18,69 @@ class AuthController extends ChangeNotifier {
   String? _empresaIdLogada;
   String? get empresaIdLogada => _empresaIdLogada;
 
-  // Nome cadastral do usuário logado (usado pelo painel do Cliente para localizar suas entregas)
+  // Nome cadastral do usuário logado
   String? _nomeUsuarioLogado;
   String? get nomeUsuarioLogado => _nomeUsuarioLogado;
+
+  // Tipo do usuário logado (ADMINISTRADOR, MOTORISTA, CLIENTE)
+  String? _tipoUsuarioLogado;
+  String? get tipoUsuarioLogado => _tipoUsuarioLogado;
 
   void _setCarregando(bool valor) {
     _carregando = valor;
     notifyListeners();
   }
 
-  // Realiza o fluxo de Login completo e retorna o tipo do usuário
+  // Realiza o fluxo de Login completo, resgatando o tipo e o empresaId do Firestore
   Future<String?> realizarLogin(String email, String senha) async {
     _setCarregando(true);
     _erroMensagem = null;
 
     try {
-      UserCredential creds = await _authService.loginComEmailESenha(email, senha);
+      UserCredential? creds = await _authService.loginComEmailESenha(email.trim(), senha);
 
-      if (creds.user != null) {
+      if (creds != null && creds.user != null) {
         var doc = await _authService.buscarDadosUsuario(creds.user!.uid);
         if (doc.exists && doc.data() != null) {
           Map<String, dynamic> dados = doc.data() as Map<String, dynamic>;
 
-          // Captura e salva o ID da empresa do usuário que acabou de logar
+          // Captura e salva o ID da empresa e o nome
           _empresaIdLogada = dados['empresaId'];
-
-          // Aproveita a MESMA leitura do documento para guardar o nome, sem nova consulta
           _nomeUsuarioLogado = dados['nome'];
 
+          String tipo = (dados['tipoUsuario'] ?? dados['tipo'] ?? 'MOTORISTA').toString().toUpperCase();
+          _tipoUsuarioLogado = tipo;
+
           _setCarregando(false);
-          // 🔥 Retorna 'tipoUsuario' padronizado em maiúsculo
-          return dados['tipoUsuario'] ?? dados['tipo'];
+          return tipo;
         }
+      }
+
+      _erroMensagem = "Usuário não encontrado ou dados inválidos.";
+      _setCarregando(false);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      switch (e.code) {
+        case 'user-not-found':
+          _erroMensagem = "Nenhum usuário encontrado com este e-mail.";
+          break;
+        case 'wrong-password':
+          _erroMensagem = "Senha incorreta. Tente novamente.";
+          break;
+        case 'invalid-credential':
+          _erroMensagem = "Credenciais inválidas. Verifique e-mail e senha.";
+          break;
+        case 'invalid-email':
+          _erroMensagem = "O formato do e-mail é inválido.";
+          break;
+        default:
+          _erroMensagem = "Erro de autenticação: ${e.message}";
+          break;
       }
       _setCarregando(false);
       return null;
     } catch (e) {
-      _erroMensagem = e.toString();
+      _erroMensagem = "Erro inesperado: $e";
       _setCarregando(false);
       return null;
     }
@@ -72,7 +98,7 @@ class AuthController extends ChangeNotifier {
       _setCarregando(false);
       return true;
     } catch (e) {
-      _erroMensagem = e.toString();
+      _erroMensagem = "Erro ao enviar e-mail de recuperação: $e";
       _setCarregando(false);
       return false;
     }
@@ -94,7 +120,6 @@ class AuthController extends ChangeNotifier {
       final bool ehAdminNovo = tipo.toUpperCase() == 'ADMINISTRADOR';
 
       if (ehAdminNovo) {
-        // Só reserva o ID — geração é local, ainda não escreve no Firestore
         empresaIdVinculada = _db.collection('empresas').doc().id;
       } else {
         if (_empresaIdLogada == null) {
@@ -103,10 +128,6 @@ class AuthController extends ChangeNotifier {
         empresaIdVinculada = _empresaIdLogada!;
       }
 
-      // Cria a conta ANTES de gravar a empresa. createUserWithEmailAndPassword
-      // já autentica a sessão, e as regras do Firestore exigem usuário logado
-      // para escrever em 'empresas'. Na ordem inversa, o cadastro público
-      // falharia com permission-denied.
       await _authService.cadastrarUsuario(
         nome: nome,
         email: email,
@@ -116,7 +137,6 @@ class AuthController extends ChangeNotifier {
       );
 
       if (ehAdminNovo) {
-        // Agora autenticado: registra a empresa do novo administrador
         await _db.collection('empresas').doc(empresaIdVinculada).set({
           'id': empresaIdVinculada,
           'nomeFantasia': nomeDaEmpresa ?? "Nova Empresa Logística",
@@ -138,6 +158,7 @@ class AuthController extends ChangeNotifier {
     await _authService.deslogar();
     _empresaIdLogada = null;
     _nomeUsuarioLogado = null;
+    _tipoUsuarioLogado = null;
     notifyListeners();
   }
 }

@@ -6,7 +6,8 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev",
-    "test": "vitest"
+    "test": "vitest",
+    "test:workers": "vitest run --config vitest.workers.config.js"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.4",

@@ -20,10 +20,15 @@ import 'package:http/http.dart' as http;
 import '../models/chat_resposta.dart';
 
 class ChatService {
-  /// Base do Worker publicado na Cloudflare.
-  static const String baseUrl = 'https://smartlog-ai.smartlogopenai.workers.dev';
+  /// Base da Cloud Function publicada no projeto smartlog-b9b37.
+  ///
+  /// Substituiu o Cloudflare Worker: a conta que hospedava o worker antigo
+  /// (smartlog-ai.smartlogopenai.workers.dev) não está mais acessível, e
+  /// ele seguiria servindo a versão com os bugs de leitura do Firestore.
+  static const String baseUrl =
+      'https://southamerica-east1-smartlog-b9b37.cloudfunctions.net';
 
-  /// Endpoint do assistente.
+  /// Endpoint do assistente — o nome da função exportada em functions/.
   static const String caminhoChat = '/chat';
 
   /// Mesmo teto que o backend aplica por requisição.
@@ -44,7 +49,6 @@ class ChatService {
     required String perfil,
     required String pergunta,
     List<Map<String, String>> historico = const [],
-    Map<String, dynamic> contexto = const {},
   }) async {
     try {
       // ── Autenticação: sem usuário logado, nem sai do app ──────────
@@ -76,11 +80,6 @@ class ChatService {
             body: jsonEncode({
               'pergunta': pergunta,
               'historico': historico,
-              // O Worker autenticado ignora este campo e monta o contexto a
-              // partir do Firestore. O Worker atualmente publicado (sem auth)
-              // usa este contexto — é o que faz o assistente responder sobre
-              // os dados que estão na tela.
-              'contexto': {'perfil': perfil, ...contexto},
             }),
           )
           .timeout(tempoLimite);

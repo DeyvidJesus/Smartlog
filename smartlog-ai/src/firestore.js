@@ -46,7 +46,22 @@ function documento(fields) {
 }
 
 /**
+ * Último segmento do "name" de um documento REST — o ID no Firestore.
+ *
+ * @param {*} nome Campo "name" devolvido pela API.
+ * @return {string} ID do documento, ou "" se ausente.
+ */
+function idDoNome(nome) {
+  if (typeof nome !== "string" || !nome) return "";
+  const partes = nome.split("/");
+  return partes[partes.length - 1] || "";
+}
+
+/**
  * Lê um documento único.
+ *
+ * O ID do documento volta em `_docId`: parte das entregas antigas não tem o
+ * campo `id` (código ENT-XXXX) gravado, e sem isso não haveria como citá-las.
  *
  * @param {string} projectId Projeto Firebase.
  * @param {string} idToken Token já verificado do usuário.
@@ -69,7 +84,7 @@ export async function lerDocumento(projectId, idToken, caminho) {
   }
 
   const json = await r.json();
-  return documento(json.fields || {});
+  return {...documento(json.fields || {}), _docId: idDoNome(json.name)};
 }
 
 /**
@@ -81,7 +96,7 @@ export async function lerDocumento(projectId, idToken, caminho) {
  * @param {string} campo Campo do filtro.
  * @param {string} igualA Valor esperado.
  * @param {number} limite Teto de documentos retornados.
- * @return {Promise<Array<Object>>} Documentos convertidos.
+ * @return {Promise<Array<Object>>} Documentos convertidos, cada um com _docId.
  */
 export async function consultar(
     projectId,
@@ -89,7 +104,7 @@ export async function consultar(
     colecao,
     campo,
     igualA,
-    limite = 200,
+    limite = 400,
 ) {
   const url =
     `${BASE}/projects/${projectId}/databases/(default)/documents:runQuery`;
@@ -100,6 +115,11 @@ export async function consultar(
       "Authorization": `Bearer ${idToken}`,
       "Content-Type": "application/json",
     },
+    // Sem orderBy de propósito: ordenar por criadoEm exigiria um índice
+    // composto (empresaId + criadoEm) e, pior, o Firestore DESCARTA da query
+    // todo documento que não tenha o campo ordenado — justamente as entregas
+    // gravadas pelo caminho antigo. A ordenação acontece em memória, em
+    // contexto.js, onde já sabemos lidar com data ausente.
     body: JSON.stringify({
       structuredQuery: {
         from: [{collectionId: colecao}],
@@ -125,5 +145,8 @@ export async function consultar(
 
   return linhas
       .filter((l) => l && l.document && l.document.fields)
-      .map((l) => documento(l.document.fields));
+      .map((l) => ({
+        ...documento(l.document.fields),
+        _docId: idDoNome(l.document.name),
+      }));
 }

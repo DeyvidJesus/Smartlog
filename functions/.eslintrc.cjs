@@ -7,6 +7,9 @@ module.exports = {
     // O runtime é Node 24; 2018 é o padrão antigo do template e quebra o parse
     // de optional chaining (?.) e nullish coalescing (??).
     "ecmaVersion": 2022,
+    // A função usa import/export (package.json tem "type": "module"), para
+    // reaproveitar contexto.js e relevancia.js sem reescrever em CommonJS.
+    "sourceType": "module",
   },
   extends: [
     "eslint:recommended",

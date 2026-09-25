@@ -9,9 +9,8 @@ rules_version = '2';
 // Estas regras valem também para o Cloudflare Worker do assistente, que
 // acessa o Firestore via REST usando o ID Token do próprio usuário.
 //
-// ⚠️ ANTES DE PUBLICAR: leia os dois blocos marcados com "REQUER AJUSTE
-// NO APP". Sem esses ajustes, o cadastro público e o bip do QR Code param
-// de funcionar.
+// Toda coleção que o app usa precisa de uma regra explícita: o bloco final
+// fecha tudo que não estiver declarado aqui.
 // ═══════════════════════════════════════════════════════════════════════
 
 service cloud.firestore {
@@ -92,12 +91,14 @@ service cloud.firestore {
       allow get: if logado() && daMinhaEmpresa(empresaId);
       allow list: if false;
 
-      // ⚠️ REQUER AJUSTE NO APP
-      // Hoje AuthController.registrarUsuario cria a empresa ANTES de criar
-      // a conta — ou seja, sem usuário autenticado. Com a regra abaixo, o
-      // cadastro público de administrador falha.
-      // Correção: inverter a ordem em registrarUsuario (criar a conta
-      // primeiro, que já autentica, e só então gravar a empresa).
+      // AuthController.registrarUsuario já cria a conta antes de gravar a
+      // empresa, então o cadastro público de administrador passa aqui.
+      //
+      // ⚠️ Regra frouxa de propósito: qualquer autenticado cria empresa.
+      // Poderia ser daMinhaEmpresa(empresaId), já que o documento em
+      // 'usuarios' é gravado primeiro e já traz o empresaId — mas isso
+      // depende da ordem exata do cadastro e quebraria o registro se ela
+      // mudasse. Apertar só depois de testar o cadastro ponta a ponta.
       allow create: if logado();
 
       allow update: if logado() && souAdmin() && daMinhaEmpresa(empresaId);
@@ -111,26 +112,61 @@ service cloud.firestore {
       // O filtro fino (motorista vê só as suas, cliente só as dele) é
       // aplicado no app e no Worker — aqui garantimos o limite da empresa.
       //
-      // ⚠️ REQUER AJUSTE NO APP
-      // DashboardController.registrarBipQRCode consulta
-      //   .where('id', isEqualTo: entregaId)
-      // sem filtrar empresaId. O Firestore recusa queries que não consigam
-      // provar que só retornam documentos permitidos, então o bip vai falhar.
-      // Correção: adicionar .where('empresaId', isEqualTo: empresaId) à
-      // consulta — o que de quebra fecha um furo que já existia hoje
-      // (um motorista conseguia dar baixa em entrega de outra empresa).
+      // Toda consulta do app precisa filtrar por empresaId, senão o
+      // Firestore recusa: ele só aceita queries que consigam provar que
+      // devolvem apenas documentos permitidos.
       allow get, list: if logado() && daMinhaEmpresa(resource.data.empresaId);
 
       // Rotas são criadas pelo admin
       allow create: if logado() && souAdmin() &&
                        daMinhaEmpresa(request.resource.data.empresaId);
 
-      // Admin edita; motorista atualiza status no bip do QR Code.
+      // Admin edita; motorista avança o status pela tela "Minhas Entregas".
       // A empresa do documento não pode mudar em nenhum dos casos.
       allow update: if logado() &&
                        daMinhaEmpresa(resource.data.empresaId) &&
                        request.resource.data.empresaId == resource.data.empresaId &&
                        (souAdmin() || souMotorista());
+
+      allow delete: if false;
+    }
+
+    // ───────────────────────── rotas ─────────────────────────
+    // Criadas por DashboardController.gerarRotaParaMotorista e lidas pelo
+    // painel do admin (carregarRotas) e pela tela de rastreamento.
+    match /rotas/{rotaId} {
+
+      // Admin acompanha as rotas da empresa; motorista e cliente abrem a
+      // tela de rastreamento. O limite é sempre a empresa.
+      allow get, list: if logado() && daMinhaEmpresa(resource.data.empresaId);
+
+      allow create: if logado() && souAdmin() &&
+                       daMinhaEmpresa(request.resource.data.empresaId);
+
+      // O motorista atualiza o andamento da rota; a empresa nunca muda.
+      allow update: if logado() &&
+                       daMinhaEmpresa(resource.data.empresaId) &&
+                       request.resource.data.empresaId == resource.data.empresaId &&
+                       (souAdmin() || souMotorista());
+
+      allow delete: if false;
+    }
+
+    // ──────────────────────── clientes ────────────────────────
+    // Cadastro comercial preenchido ao criar uma entrega pelo painel do
+    // admin. Só o admin lê e escreve — nenhuma outra tela usa a coleção.
+    match /clientes/{clienteId} {
+
+      // A query do painel filtra por empresaId, como a regra exige.
+      allow get, list: if logado() && souAdmin() &&
+                          daMinhaEmpresa(resource.data.empresaId);
+
+      allow create: if logado() && souAdmin() &&
+                       daMinhaEmpresa(request.resource.data.empresaId);
+
+      allow update: if logado() && souAdmin() &&
+                       daMinhaEmpresa(resource.data.empresaId) &&
+                       request.resource.data.empresaId == resource.data.empresaId;
 
       allow delete: if false;
     }

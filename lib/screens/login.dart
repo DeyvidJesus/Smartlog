@@ -50,7 +50,7 @@ class _TelaLoginState extends State<TelaLogin> {
         );
       } else if (tipoTratado == 'MOTORISTA') {
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardMotorista(regiaoDesignada: "Zona Sul")),
+          MaterialPageRoute(builder: (_) => const DashboardMotorista()),
         );
       } else if (tipoTratado == 'CLIENTE') {
         Navigator.of(context).pushReplacement(

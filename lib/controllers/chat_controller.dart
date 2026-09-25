@@ -77,12 +77,12 @@ class ChatController extends ChangeNotifier {
     final List<Map<String, String>> historico =
     _conversa.historicoRecente().where((m) => m['texto'] != pergunta).toList();
 
+    // Chamada corrigida sem o parâmetro 'contexto' incompatível com o ChatService
     final Resposta resposta = await _service.perguntar(
       uid: uid,
       perfil: perfil,
       pergunta: pergunta,
       historico: historico,
-      contexto: contextoBuilder?.call() ?? const {},
     );
 
     _conversa.adicionar(
