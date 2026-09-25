@@ -57,6 +57,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
 
 # Sessões do compilador Kotlin, geradas a cada build do Gradle
 /android/.kotlin/
