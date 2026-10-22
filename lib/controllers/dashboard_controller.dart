@@ -180,75 +180,111 @@ class DashboardController extends ChangeNotifier {
   Future<bool> cadastrarEntregaESincronizarCliente({
     required String clienteNome,
     required String clienteEmail,
-    required String clienteTelefone,
+    String clienteTelefone = '',
     required String endereco,
     required String regiao,
     String? motoristaId,
     String? dataAgendada,
   }) async {
     try {
-      if (empresaId == null) {
-        debugPrint("ERRO: empresaId nulo ao cadastrar entrega.");
+      if (empresaId == null || empresaId!.isEmpty) {
+        debugPrint("ERRO: empresaId nulo ou vazio ao cadastrar entrega.");
         return false;
       }
 
-      // 1. Gerar chave única para o documento do cliente na coleção 'usuarios'
-      final clienteIdKey = clienteEmail.trim().isNotEmpty
-          ? clienteEmail.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')
-          : clienteNome.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+      // ============================================================
+      // 1. GERA O ID DO CLIENTE
+      // ============================================================
 
-      final clienteRef = _firestore.collection('usuarios').doc(clienteIdKey);
-      final clienteSnapshot = await clienteRef.get();
+      final identificadorCliente = clienteEmail.trim().isNotEmpty
+          ? clienteEmail.trim().toLowerCase()
+          : clienteNome.trim().toLowerCase();
 
-      // 2. Cria ou atualiza o cliente na coleção 'usuarios'
-      if (!clienteSnapshot.exists) {
-        final novoClienteData = {
-          'id': clienteIdKey,
-          'empresaId': empresaId,
-          'nome': clienteNome,
-          'email': clienteEmail,
-          'telefone': clienteTelefone,
-          'enderecoPrincipal': endereco,
-          'tipo': 'CLIENTE',
-          'tipoUsuario': 'CLIENTE',
-          'criadoEm': FieldValue.serverTimestamp(),
-        };
+      final clienteIdKey = identificadorCliente
+          .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
 
-        await clienteRef.set(novoClienteData);
+      final clienteRef =
+      _firestore.collection('usuarios').doc(clienteIdKey);
 
-        // Atualiza a lista local em memória
-        _clientes.add({
-          'id': clienteIdKey,
-          ...novoClienteData,
-        });
+      // ============================================================
+      // 2. CRIA OU ATUALIZA O CLIENTE
+      // ============================================================
+
+      final clienteData = {
+        'id': clienteIdKey,
+        'empresaId': empresaId,
+        'nome': clienteNome.trim(),
+        'email': clienteEmail.trim(),
+        'telefone': clienteTelefone.trim(),
+        'enderecoPrincipal': endereco.trim(),
+        'tipo': 'CLIENTE',
+        'tipoUsuario': 'CLIENTE',
+        'atualizadoEm': FieldValue.serverTimestamp(),
+      };
+
+      // Não fazemos clienteRef.get().
+      //
+      // Se não existir:
+      //    -> cria o cliente.
+      //
+      // Se já existir:
+      //    -> atualiza os dados.
+      //
+      // Isso evita o PERMISSION_DENIED causado pela leitura
+      // de um documento que ainda não existe.
+
+      await clienteRef.set(
+        clienteData,
+        SetOptions(merge: true),
+      );
+
+      // ============================================================
+      // 3. ATUALIZA A LISTA LOCAL DE CLIENTES
+      // ============================================================
+
+      final clienteLocal = {
+        'id': clienteIdKey,
+        ...clienteData,
+      };
+
+      final indiceCliente = _clientes.indexWhere(
+            (cliente) => cliente['id'] == clienteIdKey,
+      );
+
+      if (indiceCliente >= 0) {
+        // Cliente já estava carregado na tela.
+        _clientes[indiceCliente] = clienteLocal;
       } else {
-        // Atualiza os dados de contato do cliente existente
-        await clienteRef.update({
-          'enderecoPrincipal': endereco,
-          if (clienteTelefone.isNotEmpty) 'telefone': clienteTelefone,
-        });
+        // Cliente novo.
+        _clientes.add(clienteLocal);
       }
 
-      // 3. Cadastra a entrega vinculada ao cliente
-      //
-      // Nome do motorista além do ID: o assistente de IA e a lista do admin
-      // exibem o nome, e buscá-lo em 'usuarios' a cada leitura sairia caro.
+      // ============================================================
+      // 4. DESCOBRE O NOME DO MOTORISTA
+      // ============================================================
+
       String motoristaNome = '';
+
       if (motoristaId != null && motoristaId.isNotEmpty) {
-        final m = _motoristas.firstWhere(
-          (x) => x['id'] == motoristaId,
+        final motorista = _motoristas.firstWhere(
+              (m) => m['id'] == motoristaId,
           orElse: () => <String, dynamic>{},
         );
-        motoristaNome = (m['nome'] ?? '').toString();
+
+        motoristaNome = (motorista['nome'] ?? '').toString();
       }
+
+      // ============================================================
+      // 5. MONTA OS DADOS DA ENTREGA
+      // ============================================================
 
       final novaEntregaData = {
         'empresaId': empresaId,
-        'cliente': clienteNome,
-        'emailCliente': clienteEmail,
+        'cliente': clienteNome.trim(),
+        'emailCliente': clienteEmail.trim(),
         'clienteId': clienteIdKey,
-        'telefoneCliente': clienteTelefone,
-        'endereco': endereco,
+        'telefoneCliente': clienteTelefone.trim(),
+        'endereco': endereco.trim(),
         'regiao': regiao,
         'status': 'Pendente',
         'motorista': motoristaNome,
@@ -257,26 +293,57 @@ class DashboardController extends ChangeNotifier {
         'criadoEm': FieldValue.serverTimestamp(),
       };
 
-      final docRef = await _firestore.collection('entregas').add(novaEntregaData);
+      // ============================================================
+      // 6. CADASTRA A ENTREGA
+      // ============================================================
 
-      // O código só pode ser gerado depois que o Firestore atribui o ID.
+      final docRef = await _firestore
+          .collection('entregas')
+          .add(novaEntregaData);
+
+      // ============================================================
+      // 7. GERA O CÓDIGO DA ENTREGA
+      // ============================================================
+
       final codigo = codigoEntrega(docRef.id);
-      await docRef.update({'id': codigo});
 
-      // Adiciona na lista local de entregas
+      await docRef.update({
+        'id': codigo,
+      });
+
+      // ============================================================
+      // 8. ATUALIZA A LISTA LOCAL DE ENTREGAS
+      // ============================================================
+
       _entregas.add({
         ...novaEntregaData,
         'id': codigo,
         'docId': docRef.id,
       });
 
-      if (!_descartado) notifyListeners();
-      debugPrint("Entrega cadastrada e cliente sincronizado com sucesso!");
+      // ============================================================
+      // 9. ATUALIZA A INTERFACE
+      // ============================================================
+
+      if (!_descartado) {
+        notifyListeners();
+      }
+
+      debugPrint(
+        "Entrega cadastrada e cliente sincronizado com sucesso!",
+      );
+
       return true;
     } catch (e) {
       _erro = e.toString();
-      debugPrint("ERRO ao cadastrar entrega e sincronizar cliente: $e");
-      if (!_descartado) notifyListeners();
+
+      debugPrint(
+        "ERRO ao cadastrar entrega e sincronizar cliente: $e",
+      );
+      if (!_descartado) {
+        notifyListeners();
+      }
+
       return false;
     }
   }
@@ -408,11 +475,17 @@ class DashboardController extends ChangeNotifier {
 
       final entregasFiltradas = snapshot.docs.where((doc) {
         final data = doc.data();
-        final statusDoc = (data['status'] ?? '').toString().trim().toLowerCase();
-        final regiaoDoc = (data['regiao'] ?? '').toString().trim().toLowerCase();
 
-        final bool ehPendente = statusDoc == 'pendente';
-        final bool mesmaRegiao = regiaoDoc == regiao.trim().toLowerCase();
+        final statusDoc =
+        (data['status'] ?? '').toString().trim().toLowerCase();
+
+        final regiaoDoc =
+        (data['regiao'] ?? '').toString().trim().toLowerCase();
+
+        final ehPendente = statusDoc == 'pendente';
+
+        final mesmaRegiao =
+            regiaoDoc == regiao.trim().toLowerCase();
 
         return ehPendente && mesmaRegiao;
       }).toList();
