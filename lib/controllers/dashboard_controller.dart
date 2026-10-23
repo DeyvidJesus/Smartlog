@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+import '../services/api_service.dart';
 // lib/controllers/dashboard_controller.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -21,6 +23,8 @@ class DashboardController extends ChangeNotifier {
   String? empresaId;
   bool _carregando = false;
   bool _descartado = false;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _entregasSubscription;
+  String? _listeningKey;
   String? _analiseIA;
   String? _erro;
 
@@ -36,6 +40,7 @@ class DashboardController extends ChangeNotifier {
   @override
   void dispose() {
     _descartado = true;
+    _entregasSubscription?.cancel();
     super.dispose();
   }
 
@@ -65,10 +70,13 @@ class DashboardController extends ChangeNotifier {
     if (!_descartado) notifyListeners();
 
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      final profile = user == null ? null : (await _firestore.collection('usuarios').doc(user.uid).get()).data();
+      final isAdmin = ['ADMIN','ADMINISTRADOR'].contains((profile?['tipoUsuario'] ?? '').toString().toUpperCase());
       await Future.wait([
         carregarEntregas(),
-        carregarMotoristas(),
-        carregarClientes(),
+        if (isAdmin) carregarMotoristas(),
+        if (isAdmin) carregarClientes(),
         carregarRotas(),
         carregarPerfilEmpresa(idEmpresa),
       ]);
@@ -88,10 +96,30 @@ class DashboardController extends ChangeNotifier {
         return;
       }
 
-      final snapshot = await _firestore
-          .collection('entregas')
-          .where('empresaId', isEqualTo: empresaId)
-          .get();
+      Query<Map<String, dynamic>> query = _firestore.collection('entregas').where('empresaId', isEqualTo: empresaId);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('Autenticação necessária.');
+      final profile = (await _firestore.collection('usuarios').doc(user.uid).get()).data();
+      final role = (profile?['tipoUsuario'] ?? '').toString().toUpperCase();
+      if (role == 'MOTORISTA') query = query.where('motoristaId', isEqualTo: user.uid);
+      if (role == 'CLIENTE') query = query.where('emailCliente', isEqualTo: user.email?.toLowerCase());
+      final snapshot = await query.get();
+      final currentKey = '${user.uid}:$empresaId';
+      if (_listeningKey != currentKey) {
+        await _entregasSubscription?.cancel();
+        _listeningKey = currentKey;
+        final listeningUid = user.uid;
+        final listeningTenant = empresaId;
+        _entregasSubscription = query.snapshots().listen((snapshot) {
+          if (_descartado || FirebaseAuth.instance.currentUser?.uid != listeningUid || empresaId != listeningTenant) return;
+          _entregas = snapshot.docs.map((doc) => {'id': codigoEntrega(doc.id), ...doc.data(), 'docId': doc.id}).toList();
+          notifyListeners();
+        }, onError: (Object error) {
+          if (_descartado) return;
+          _erro = 'Não foi possível atualizar as entregas. Verifique a conexão.';
+          notifyListeners();
+        });
+      }
 
       // 'id' é sempre o código amigável (ENT-XXXX). Entregas antigas não têm
       // esse campo gravado, então ele é derivado do ID do documento — a
@@ -164,10 +192,14 @@ class DashboardController extends ChangeNotifier {
   Future<void> carregarRotas() async {
     try {
       if (empresaId == null) return;
-      final snapshot = await _firestore
-          .collection('rotas')
-          .where('empresaId', isEqualTo: empresaId)
-          .get();
+      Query<Map<String,dynamic>> query = _firestore.collection('rotas').where('empresaId', isEqualTo: empresaId);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final profile = (await _firestore.collection('usuarios').doc(user.uid).get()).data();
+      final role = (profile?['tipoUsuario'] ?? '').toString().toUpperCase();
+      if (role == 'CLIENTE') { _rotas = []; return; }
+      if (role == 'MOTORISTA') query = query.where('motoristaId', isEqualTo: user.uid);
+      final snapshot = await query.get();
 
       _rotas = snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
       if (!_descartado) notifyListeners();
@@ -281,7 +313,7 @@ class DashboardController extends ChangeNotifier {
       final novaEntregaData = {
         'empresaId': empresaId,
         'cliente': clienteNome.trim(),
-        'emailCliente': clienteEmail.trim(),
+        'emailCliente': clienteEmail.trim().toLowerCase(),
         'clienteId': clienteIdKey,
         'telefoneCliente': clienteTelefone.trim(),
         'endereco': endereco.trim(),
@@ -404,7 +436,8 @@ class DashboardController extends ChangeNotifier {
     required String regiao,
   }) async {
     try {
-      const senhaProvisoria = "SmartLog@2026";
+      final random = math.Random.secure();
+      final senhaProvisoria = List.generate(32, (_) => random.nextInt(36).toRadixString(36)).join();
 
       FirebaseApp appSecundario = await Firebase.initializeApp(
         name: 'RegistroMotorista',
@@ -414,19 +447,19 @@ class DashboardController extends ChangeNotifier {
       FirebaseAuth authSecundario = FirebaseAuth.instanceFor(app: appSecundario);
 
       UserCredential userCredential = await authSecundario.createUserWithEmailAndPassword(
-        email: email,
+        email: email.trim().toLowerCase(),
         password: senhaProvisoria,
       );
 
       final uidMotorista = userCredential.user?.uid;
       if (uidMotorista == null) throw Exception("Erro ao gerar ID de autenticação.");
 
-      await userCredential.user?.sendEmailVerification();
+      await authSecundario.sendPasswordResetEmail(email: email.trim().toLowerCase());
       await appSecundario.delete();
 
       final novoMotoristaData = {
         'nome': nome,
-        'email': email,
+        'email': email.trim().toLowerCase(),
         'regiaoDesignada': regiao,
         'tipo': 'MOTORISTA',
         'tipoUsuario': 'MOTORISTA',
@@ -468,10 +501,14 @@ class DashboardController extends ChangeNotifier {
         return false;
       }
 
-      final snapshot = await _firestore
-          .collection('entregas')
-          .where('empresaId', isEqualTo: empresaId)
-          .get();
+      Query<Map<String, dynamic>> query = _firestore.collection('entregas').where('empresaId', isEqualTo: empresaId);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('Autenticação necessária.');
+      final profile = (await _firestore.collection('usuarios').doc(user.uid).get()).data();
+      final role = (profile?['tipoUsuario'] ?? '').toString().toUpperCase();
+      if (role == 'MOTORISTA') query = query.where('motoristaId', isEqualTo: user.uid);
+      if (role == 'CLIENTE') query = query.where('emailCliente', isEqualTo: user.email?.toLowerCase());
+      final snapshot = await query.get();
 
       final entregasFiltradas = snapshot.docs.where((doc) {
         final data = doc.data();
@@ -515,7 +552,7 @@ class DashboardController extends ChangeNotifier {
         'criadoEm': FieldValue.serverTimestamp(),
       };
 
-      await _firestore.collection('rotas').add(novaRotaData);
+      final rotaCriada = await _firestore.collection('rotas').add(novaRotaData);
 
       // Carimba a atribuição nas próprias entregas. A coleção 'rotas' não é
       // lida pelo painel do motorista nem pelo assistente de IA: sem estes
@@ -524,6 +561,7 @@ class DashboardController extends ChangeNotifier {
       final lote = _firestore.batch();
       for (var i = 0; i < paradas.length; i++) {
         lote.update(paradas[i].reference, {
+          'rotaId': rotaCriada.id,
           'motoristaId': motoristaId,
           'motorista': motoristaNome,
           'ordemEntrega': i + 1,
@@ -589,7 +627,7 @@ class DashboardController extends ChangeNotifier {
         return "Esta entrega já foi finalizada.";
       }
 
-      await _firestore.collection('entregas').doc(docId).update(alteracoes);
+      await ApiService.atualizarStatusNoServidor(docId, alteracoes['status'] as String, recebedor: nomeRecebedor);
 
       // Espelha localmente só depois de o Firestore confirmar. O
       // serverTimestamp não tem valor no cliente, por isso não é copiado.

@@ -1,16 +1,4 @@
-// lib/services/chat_service.dart
-//
-// Única porta de saída do app rumo ao Assistente Logístico.
-//
-// A chave da OpenAI NÃO existe neste projeto Flutter: este serviço apenas
-// faz um POST autenticado para o Cloudflare Worker, que é quem detém a chave
-// e conversa com a OpenAI no servidor.
-//
-// Autenticação: reaproveita o Firebase Authentication já existente no app.
-// Enviamos o ID Token no header Authorization; o Worker verifica a assinatura
-// criptograficamente e deriva a identidade dali. O uid NÃO é enviado no corpo
-// — ele não serviria como prova de identidade, apenas como alegação.
-
+// Assistente compartilhado com o dashboard. Identidade validada pela API; chave de IA somente no servidor.
 import 'dart:async';
 import 'dart:convert';
 
@@ -20,19 +8,15 @@ import 'package:http/http.dart' as http;
 import '../models/chat_resposta.dart';
 
 class ChatService {
-  /// Base da Cloud Function publicada no projeto smartlog-b9b37.
-  ///
-  /// Substituiu o Cloudflare Worker: a conta que hospedava o worker antigo
-  /// (smartlog-ai.smartlogopenai.workers.dev) não está mais acessível, e
-  /// ele seguiria servindo a versão com os bugs de leitura do Firestore.
-  static const String baseUrl =
-      'https://southamerica-east1-smartlog-b9b37.cloudfunctions.net';
+  static const String baseUrl = String.fromEnvironment('CHAT_BASE_URL',
+      defaultValue: String.fromEnvironment('API_BASE_URL',
+          defaultValue: 'https://smartlog-next-2026.netlify.app/api/v1'));
 
   /// Endpoint do assistente — o nome da função exportada em functions/.
   static const String caminhoChat = '/chat';
 
   /// Mesmo teto que o backend aplica por requisição.
-  static const Duration tempoLimite = Duration(seconds: 60);
+  static const Duration tempoLimite = Duration(seconds: 35);
 
   final http.Client _client;
   final FirebaseAuth _auth;
@@ -135,8 +119,10 @@ class ChatService {
 
   String _mensagemAmigavel(int status, Map<String, dynamic>? json) {
     // Erros de validação (400) já vêm com texto preciso e acionável do Worker
-    final String? doServidor = json?['erro']?.toString();
-    if (status == 400 && doServidor != null && doServidor.isNotEmpty) {
+    final String? doServidor = (json?['message'] ?? json?['erro'])?.toString();
+    if ((status == 400 || status == 429 || status == 503) &&
+        doServidor != null &&
+        doServidor.isNotEmpty) {
       return doServidor;
     }
 
@@ -156,7 +142,7 @@ class ChatService {
       case 429:
         return 'Limite de uso do assistente atingido. Tente novamente mais tarde.';
       case 503:
-        return 'O assistente está sem a chave da OpenAI configurada no servidor.';
+        return 'O assistente ainda precisa ser configurado no servidor.';
       case 502:
         return 'O assistente não conseguiu responder agora. Tente novamente.';
       default:

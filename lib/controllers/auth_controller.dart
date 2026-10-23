@@ -37,9 +37,9 @@ class AuthController extends ChangeNotifier {
     _erroMensagem = null;
 
     try {
-      UserCredential? creds = await _authService.loginComEmailESenha(email.trim(), senha);
+      UserCredential creds = await _authService.loginComEmailESenha(email.trim(), senha);
 
-      if (creds != null && creds.user != null) {
+      if (creds.user != null) {
         var doc = await _authService.buscarDadosUsuario(creds.user!.uid);
         if (doc.exists && doc.data() != null) {
           Map<String, dynamic> dados = doc.data() as Map<String, dynamic>;
@@ -137,6 +137,7 @@ class AuthController extends ChangeNotifier {
       );
 
       if (ehAdminNovo) {
+        empresaIdVinculada = FirebaseAuth.instance.currentUser!.uid;
         await _db.collection('empresas').doc(empresaIdVinculada).set({
           'id': empresaIdVinculada,
           'nomeFantasia': nomeDaEmpresa ?? "Nova Empresa Logística",

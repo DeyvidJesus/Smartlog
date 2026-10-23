@@ -33,11 +33,11 @@ class Entrega {
       status: json['status'] ?? 'Pendente',
       eta: json['ETA'] ?? '',
       rotaId: json['rotaId'] ?? '',
-      dataCriacao: json['dataCriacao'] != null
-          ? DateTime.parse(json['dataCriacao'])
+      dataCriacao: (json['criadaEm'] ?? json['dataCriacao']) != null
+          ? DateTime.parse(json['criadaEm'] ?? json['dataCriacao'])
           : DateTime.now(),
-      dataEntrega: json['dataEntrega'] != null
-          ? DateTime.parse(json['dataEntrega'])
+      dataEntrega: (json['entregueEm'] ?? json['dataEntrega']) != null
+          ? DateTime.parse(json['entregueEm'] ?? json['dataEntrega'])
           : null,
     );
   }

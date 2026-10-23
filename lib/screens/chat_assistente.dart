@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../controllers/chat_controller.dart';
 import '../controllers/dashboard_controller.dart';
 import '../models/chat_mensagem.dart';
+import '../widgets/voice_assistant.dart';
 
 /// Resume a operação exibida na tela para enviar como contexto ao assistente.
 /// Mantém o payload enxuto: agregados completos + amostra das entregas.
@@ -114,6 +115,7 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
         foregroundColor: Colors.white,
         title: const Text("Assistente Logístico"),
         actions: [
+          const VoiceAssistantButton(),
           if (!controller.conversaVazia)
             IconButton(
               tooltip: "Limpar conversa",

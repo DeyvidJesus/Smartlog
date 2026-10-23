@@ -43,6 +43,13 @@ class LocationService {
     );
 
     await pararRastreamento();
+    // Persist a real first fix before announcing that tracking has started.
+    final initial = await Geolocator.getCurrentPosition(locationSettings: configuracao);
+    await _firestore.collection('rotas').doc(rotaId).update({
+      'localizacaoAtual': {'latitude': initial.latitude, 'longitude': initial.longitude,
+        'atualizadoEm': FieldValue.serverTimestamp()},
+      'motoristaId': motoristaId,
+    });
 
     _subscription = Geolocator.getPositionStream(
       locationSettings: configuracao,

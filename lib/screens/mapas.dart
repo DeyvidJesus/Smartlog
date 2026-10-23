@@ -1,3 +1,4 @@
+import '../widgets/driver_road_map.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -32,7 +33,7 @@ class _MapScreenState extends State<MapScreen> {
   String? _routeInfo;
 
   static const String _token =
-  String.fromEnvironment('ACCESS_TOKEN');
+  String.fromEnvironment('ACCESS_TOKEN', defaultValue: String.fromEnvironment('MAPBOX_ACCESS_TOKEN'));
 
   static const String _sourceId = 'delivery-route-source';
   static const String _layerId = 'delivery-route-layer';
@@ -445,6 +446,11 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_token.isEmpty) {
+      return RoadRouteScreen(routeId: widget.rotaId,
+        tenant: widget.rota['empresaId']?.toString() ?? '',
+        title: 'Rota: ${widget.motoristaNome}');
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text('Rota: ${widget.motoristaNome}'),

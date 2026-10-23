@@ -1,7 +1,8 @@
+import {consultarModelo} from "./ai-provider.js";
 /**
  * SmartLog — Assistente Logístico (Firebase Cloud Function)
  *
- * Fluxo: Flutter (ChatService) → POST /chat → Firestore → OpenAI.
+ * Fluxo: Flutter (ChatService) → POST /chat → Firestore → Gemini.
  *
  * ── Por que onRequest e não onCall ──────────────────────────────────
  * O app fala com o assistente por HTTP puro (ChatService faz um POST com
@@ -21,8 +22,8 @@
  * lido do próprio cadastro do usuário, e o recorte por perfil acontece em
  * contexto.js. Não adicione consulta sem esse filtro.
  *
- * A chave da OpenAI vive no Secret Manager:
- *   firebase functions:secrets:set OPENAI_API_KEY
+ * A chave da Gemini vive no Secret Manager:
+ *   firebase functions:secrets:set GEMINI_API_KEY
  */
 
 import {onRequest} from "firebase-functions/v2/https";
@@ -43,13 +44,13 @@ import {selecionar, codigosInexistentes} from "./relevancia.js";
 initializeApp();
 const db = getFirestore();
 
-const OPENAI_API_KEY = defineSecret("OPENAI_API_KEY");
+const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 
-const MODELO_PADRAO = "gpt-4o-mini";
-const TEMPERATURA = 0.2;
+const MODELO_PADRAO = "gemini-3.1-flash-lite";
+
 // 500 truncava qualquer resposta em lista no meio — o usuário lia isso
 // como "o assistente não achou os dados".
-const MAX_TOKENS = 900;
+
 const MAX_PERGUNTA = 500;
 const MAX_HISTORICO = 6;
 const MAX_TEXTO_HISTORICO = 1500;
@@ -110,7 +111,7 @@ function extrairBearer(req) {
 }
 
 /**
- * Normaliza o histórico para o formato de mensagens da OpenAI.
+ * Normaliza o histórico para o formato de mensagens da Gemini.
  *
  * @param {*} historico Lista bruta do cliente.
  * @return {!Array<!Object>} Mensagens role/content.
@@ -148,7 +149,7 @@ async function lerEntregas(empresaId) {
 }
 
 /**
- * Chama a OpenAI. Só é invocada após a autenticação ter sucesso.
+ * Chama a Gemini. Só é invocada após a autenticação ter sucesso.
  *
  * @param {string} apiKey Segredo da função.
  * @param {string} modelo Modelo a usar.
@@ -157,7 +158,7 @@ async function lerEntregas(empresaId) {
  * @param {!Array<!Object>} historico Mensagens anteriores.
  * @return {!Promise<string>} Texto da resposta.
  */
-async function consultarOpenAI(apiKey, modelo, pergunta, contexto, historico) {
+async function consultarIA(apiKey, modelo, pergunta, contexto, historico) {
   const mensagens = [
     {role: "system", content: PROMPT_SISTEMA},
     ...historico,
@@ -171,32 +172,7 @@ async function consultarOpenAI(apiKey, modelo, pergunta, contexto, historico) {
     },
   ];
 
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: modelo,
-      messages: mensagens,
-      temperature: TEMPERATURA,
-      max_tokens: MAX_TOKENS,
-    }),
-  });
-
-  if (!r.ok) {
-    console.error("OpenAI falhou:", r.status);
-    if (r.status === 429) throw new Error("LIMITE");
-    if (r.status === 401) throw new Error("CREDENCIAL");
-    throw new Error("UPSTREAM");
-  }
-
-  const d = await r.json();
-  const texto = d && d.choices && d.choices[0] && d.choices[0].message ?
-    d.choices[0].message.content :
-    "";
-  return String(texto || "").trim();
+  return consultarModelo({apiKey, modelo, mensagens});
 }
 
 export const chat = onRequest(
@@ -204,7 +180,7 @@ export const chat = onRequest(
       region: "southamerica-east1",
       timeoutSeconds: 60,
       memory: "256MiB",
-      secrets: [OPENAI_API_KEY],
+      secrets: [GEMINI_API_KEY],
       cors: false, // tratado à mão, para responder o preflight igual ao Worker
     },
     async (req, res) => {
@@ -351,11 +327,11 @@ export const chat = onRequest(
         return;
       }
 
-      // ── 5. OpenAI — só chega aqui com identidade confirmada ─────
+      // ── 5. Gemini — só chega aqui com identidade confirmada ─────
       try {
-        const resposta = await consultarOpenAI(
-            OPENAI_API_KEY.value(),
-            process.env.OPENAI_MODEL || MODELO_PADRAO,
+        const resposta = await consultarIA(
+            GEMINI_API_KEY.value(),
+            process.env.GEMINI_MODEL || MODELO_PADRAO,
             pergunta,
             contexto,
             historico,

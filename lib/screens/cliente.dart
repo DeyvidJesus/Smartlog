@@ -46,7 +46,7 @@ class _DashboardClienteState extends State<DashboardCliente> {
     final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "";
 
     // 👥 Filtragem de entregas via controller
-    final List<Map<String, dynamic>> minhasEntregas = controller.filtrarPorCliente(nomeCliente);
+    final List<Map<String, dynamic>> minhasEntregas = controller.entregas.toList();
 
     // Prioridade de ordenação do status
     const Map<String, int> prioridadeStatus = {

@@ -1,181 +1,77 @@
 rules_version = '2';
-
-// ═══════════════════════════════════════════════════════════════════════
-// SmartLog — Regras de segurança do Firestore
-//
-// Princípio: ninguém lê ou escreve nada sem estar autenticado, e cada
-// usuário só enxerga dados da PRÓPRIA empresa (isolamento multi-tenant).
-//
-// Estas regras valem também para o Cloudflare Worker do assistente, que
-// acessa o Firestore via REST usando o ID Token do próprio usuário.
-//
-// Toda coleção que o app usa precisa de uma regra explícita: o bloco final
-// fecha tudo que não estiver declarado aqui.
-// ═══════════════════════════════════════════════════════════════════════
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ───────────────────────── Helpers ─────────────────────────
-
-    function logado() {
-      return request.auth != null;
+    function logged() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function profile() { return get(/databases/$(database)/documents/usuarios/$(uid())).data; }
+    function registered() { return logged() && exists(/databases/$(database)/documents/usuarios/$(uid())) && profile().get('ativo',true) != false; }
+    function admin() { return registered() && profile().tipoUsuario in ['ADMIN','ADMINISTRADOR']; }
+    function driver() { return registered() && profile().tipoUsuario == 'MOTORISTA'; }
+    function tenant(id) { return registered() && profile().empresaId == id; }
+    function sameTenant() { return tenant(resource.data.empresaId); }
+    function unchangedTenant() { return request.resource.data.empresaId == resource.data.empresaId; }
+    function ownDelivery() {
+      return resource.data.get('motoristaId','') == uid()
+        || resource.data.get('clienteId','') == uid()
+        || (profile().tipoUsuario == 'CLIENTE'
+          && request.auth.token.get('email','') != ''
+          && resource.data.get('emailCliente','') == request.auth.token.email);
     }
-
-    function meuUid() {
-      return request.auth.uid;
-    }
-
-    function tenhoCadastro() {
-      return exists(/databases/$(database)/documents/usuarios/$(meuUid()));
-    }
-
-    // get() dentro de regras NÃO reavalia regras — é uma leitura privilegiada
-    function meuDoc() {
-      return get(/databases/$(database)/documents/usuarios/$(meuUid())).data;
-    }
-
-    function meuTipo() {
-      return meuDoc().tipoUsuario;
-    }
-
-    function souAdmin() {
-      return tenhoCadastro() &&
-             (meuTipo() == 'ADMINISTRADOR' || meuTipo() == 'ADMIN');
-    }
-
-    function souMotorista() {
-      return tenhoCadastro() && meuTipo() == 'MOTORISTA';
-    }
-
-    // Coração do isolamento: o recurso pertence à minha empresa?
-    function daMinhaEmpresa(empresaId) {
-      return tenhoCadastro() && empresaId == meuDoc().empresaId;
-    }
-
-    // ───────────────────────── usuarios ─────────────────────────
-    match /usuarios/{uid} {
-
-      // Cada um lê o próprio cadastro; o admin lê os da sua empresa
-      allow get: if logado() && (
-                   uid == meuUid() ||
-                   (souAdmin() && daMinhaEmpresa(resource.data.empresaId))
-                 );
-
-      // Listagem de motoristas/clientes no painel do admin.
-      // A query PRECISA filtrar por empresaId, senão o Firestore recusa.
-      allow list: if logado() && souAdmin() &&
-                     daMinhaEmpresa(resource.data.empresaId);
-
-      // Dois caminhos de criação:
-      //  1. o próprio usuário no cadastro público (doc = seu uid)
-      //  2. o admin criando motorista/cliente por convite
-      allow create: if logado() && (
-                      uid == meuUid() ||
-                      (souAdmin() &&
-                       daMinhaEmpresa(request.resource.data.empresaId))
-                    );
-
-      // Só o admin da mesma empresa edita cadastros
-      allow update: if logado() && souAdmin() &&
-                       daMinhaEmpresa(resource.data.empresaId) &&
-                       request.resource.data.empresaId == resource.data.empresaId;
-
-      // Exclusão não existe no app — bloqueada
+    match /usuarios/{id} {
+      allow get: if logged() && (id == uid() || (admin() && sameTenant()));
+      allow list: if admin() && sameTenant();
+      // Public signup may create only its own isolated administrator/company.
+      allow create: if logged() && (
+        (id == uid() && request.resource.data.empresaId == uid()
+          && request.resource.data.tipoUsuario in ['ADMIN','ADMINISTRADOR'])
+        || (admin() && tenant(request.resource.data.empresaId)));
+      allow update: if logged() && unchangedTenant() && (
+        (admin() && sameTenant())
+        || (id == uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nome','telefone','fotoUrl','email','atualizadoEm'])
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email'])
+            || request.resource.data.email == request.auth.token.get('email',''))));
       allow delete: if false;
     }
-
-    // ───────────────────────── empresas ─────────────────────────
-    match /empresas/{empresaId} {
-
-      allow get: if logado() && daMinhaEmpresa(empresaId);
+    match /empresas/{id} {
+      allow get: if tenant(id);
       allow list: if false;
-
-      // AuthController.registrarUsuario já cria a conta antes de gravar a
-      // empresa, então o cadastro público de administrador passa aqui.
-      //
-      // ⚠️ Regra frouxa de propósito: qualquer autenticado cria empresa.
-      // Poderia ser daMinhaEmpresa(empresaId), já que o documento em
-      // 'usuarios' é gravado primeiro e já traz o empresaId — mas isso
-      // depende da ordem exata do cadastro e quebraria o registro se ela
-      // mudasse. Apertar só depois de testar o cadastro ponta a ponta.
-      allow create: if logado();
-
-      allow update: if logado() && souAdmin() && daMinhaEmpresa(empresaId);
+      allow create: if logged() && id == uid() && tenant(id) && admin();
+      allow update: if admin() && tenant(id);
       allow delete: if false;
     }
-
-    // ───────────────────────── entregas ─────────────────────────
-    match /entregas/{entregaId} {
-
-      // Todos os perfis leem as entregas da própria empresa.
-      // O filtro fino (motorista vê só as suas, cliente só as dele) é
-      // aplicado no app e no Worker — aqui garantimos o limite da empresa.
-      //
-      // Toda consulta do app precisa filtrar por empresaId, senão o
-      // Firestore recusa: ele só aceita queries que consigam provar que
-      // devolvem apenas documentos permitidos.
-      allow get, list: if logado() && daMinhaEmpresa(resource.data.empresaId);
-
-      // Rotas são criadas pelo admin
-      allow create: if logado() && souAdmin() &&
-                       daMinhaEmpresa(request.resource.data.empresaId);
-
-      // Admin edita; motorista avança o status pela tela "Minhas Entregas".
-      // A empresa do documento não pode mudar em nenhum dos casos.
-      allow update: if logado() &&
-                       daMinhaEmpresa(resource.data.empresaId) &&
-                       request.resource.data.empresaId == resource.data.empresaId &&
-                       (souAdmin() || souMotorista());
-
+    match /entregas/{id} {
+      allow read: if logged() && sameTenant() && (admin() || ownDelivery());
+      allow create: if admin() && tenant(request.resource.data.empresaId);
+      allow update: if logged() && sameTenant() && unchangedTenant() && (
+        admin() || (driver() && resource.data.get('motoristaId','') == uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'ordemEntrega'])));
       allow delete: if false;
     }
-
-    // ───────────────────────── rotas ─────────────────────────
-    // Criadas por DashboardController.gerarRotaParaMotorista e lidas pelo
-    // painel do admin (carregarRotas) e pela tela de rastreamento.
-    match /rotas/{rotaId} {
-
-      // Admin acompanha as rotas da empresa; motorista e cliente abrem a
-      // tela de rastreamento. O limite é sempre a empresa.
-      allow get, list: if logado() && daMinhaEmpresa(resource.data.empresaId);
-
-      allow create: if logado() && souAdmin() &&
-                       daMinhaEmpresa(request.resource.data.empresaId);
-
-      // O motorista atualiza o andamento da rota; a empresa nunca muda.
-      allow update: if logado() &&
-                       daMinhaEmpresa(resource.data.empresaId) &&
-                       request.resource.data.empresaId == resource.data.empresaId &&
-                       (souAdmin() || souMotorista());
-
+    match /rotas/{id} {
+      allow read: if logged() && sameTenant() && (admin() || resource.data.get('motoristaId','') == uid());
+      allow create: if admin() && tenant(request.resource.data.empresaId);
+      allow update: if logged() && sameTenant() && unchangedTenant() && (
+        admin() || (driver() && resource.data.get('motoristaId','') == uid()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status','pausadaEm','iniciadaEm','localizacaoAtual',
+            'enderecos','totalEnderecos','criterioOrdenacao','otimizadaEm',
+            'distanciaRestanteMetros','distanciaIncluiGps','distanciaCalculadaEm'])
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['distanciaRestanteMetros','distanciaIncluiGps','distanciaCalculadaEm'])
+            || (request.resource.data.distanciaRestanteMetros is number
+              && request.resource.data.distanciaRestanteMetros >= 0
+              && request.resource.data.distanciaRestanteMetros <= 20000000
+              && request.resource.data.distanciaIncluiGps is bool
+              && request.resource.data.distanciaCalculadaEm == request.time))));
       allow delete: if false;
     }
-
-    // ──────────────────────── clientes ────────────────────────
-    // Cadastro comercial preenchido ao criar uma entrega pelo painel do
-    // admin. Só o admin lê e escreve — nenhuma outra tela usa a coleção.
-    match /clientes/{clienteId} {
-
-      // A query do painel filtra por empresaId, como a regra exige.
-      allow get, list: if logado() && souAdmin() &&
-                          daMinhaEmpresa(resource.data.empresaId);
-
-      allow create: if logado() && souAdmin() &&
-                       daMinhaEmpresa(request.resource.data.empresaId);
-
-      allow update: if logado() && souAdmin() &&
-                       daMinhaEmpresa(resource.data.empresaId) &&
-                       request.resource.data.empresaId == resource.data.empresaId;
-
+    match /clientes/{id} {
+      allow read: if admin() && sameTenant();
+      allow create: if admin() && tenant(request.resource.data.empresaId);
+      allow update: if admin() && sameTenant() && unchangedTenant();
       allow delete: if false;
     }
-
-    // ──────────────── Bloqueio padrão (fail closed) ────────────────
-    // Qualquer coleção não declarada acima fica inacessível. Coleções
-    // novas precisam de uma regra explícita para funcionar.
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }

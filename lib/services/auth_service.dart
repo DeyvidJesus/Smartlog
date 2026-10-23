@@ -11,7 +11,7 @@ class AuthService {
   // Login com Email e Senha
   Future<UserCredential> loginComEmailESenha(String email, String senha) async {
     try {
-      return await _auth.signInWithEmailAndPassword(email: email, password: senha);
+      return await _auth.signInWithEmailAndPassword(email: email.trim().toLowerCase(), password: senha);
     } on FirebaseAuthException catch (e) {
       throw _tratarErroAuth(e);
     }
@@ -28,7 +28,7 @@ class AuthService {
     try {
       // 1. Cria a credencial de acesso oficial no Firebase Authentication
       UserCredential cred = await _auth.createUserWithEmailAndPassword(
-        email: email,
+        email: email.trim().toLowerCase(),
         password: senha,
       );
 
@@ -39,9 +39,9 @@ class AuthService {
       await _db.collection('usuarios').doc(cred.user?.uid).set({
         'uid': cred.user?.uid,
         'nome': nome,
-        'email': email,
+        'email': email.trim().toLowerCase(),
         'tipoUsuario': tipo.toUpperCase(), // 🔥 Padronizado para tipoUsuario
-        'empresaId': empresaId,
+        'empresaId': (tipo.toUpperCase() == 'ADMINISTRADOR' || tipo.toUpperCase() == 'ADMIN') ? cred.user!.uid : empresaId,
         'statusAtivacao': 'PENDENTE',
         'dataCadastro': FieldValue.serverTimestamp(),
       });

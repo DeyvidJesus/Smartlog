@@ -1,3 +1,7 @@
+> Publicação atual: https://smartlog-next-2026.netlify.app — configuração e ensaio no [guia Netlify](../SmartLogAPI/docs/NETLIFY.md). Os procedimentos Google/Cloud Run abaixo são alternativas históricas.
+
+> Integração de 23/10/2026: status e chat usam a API compartilhada com o painel. Provedor padrão da IA: Gemini Flash-Lite. O Firestore original do app foi preservado. Guia completo no workspace: ../SmartLogAPI/docs/INTEGRACAO.md.
+
 # SmartLog
 
 > **Projeto em equipe — fork de [LucasSilva2005/Smartlog](https://github.com/LucasSilva2005/Smartlog).**
@@ -5,9 +9,9 @@
 
 ### Minha contribuição (Deyvid Gondim)
 
-- **Camada de IA (Assistente Logístico)** — Cloudflare Worker em [`smartlog-ai/`](smartlog-ai/) que recebe a pergunta do app, **verifica o Firebase ID Token (JWT) via WebCrypto** contra as chaves públicas do Google, lê o Firestore com a credencial do próprio usuário e responde com a OpenAI. A identidade, o perfil e a empresa vêm só do token verificado, nunca do corpo da requisição.
+- **Camada de IA (Assistente Logístico)** — Cloudflare Worker em [`smartlog-ai/`](smartlog-ai/) que recebe a pergunta do app, **verifica o Firebase ID Token (JWT) via WebCrypto** contra as chaves públicas do Google, lê o Firestore com a credencial do próprio usuário e responde com o Gemini. A identidade, o perfil e a empresa vêm só do token verificado, nunca do corpo da requisição.
 - **Seleção de contexto e relevância** — normalização dos schemas de `entregas` gravados por caminhos diferentes do app, contexto recortado por perfil (admin, motorista, cliente) e seleção das entregas guiada pela pergunta (códigos `ENT-…`, nomes, regiões), com teto de itens para controlar custo de tokens ([`contexto.js`](smartlog-ai/src/contexto.js), [`relevancia.js`](smartlog-ai/src/relevancia.js)).
-- **Cloud Functions** — a mesma lógica portada para uma Firebase Function HTTP (`chat`, `southamerica-east1`) com Admin SDK e chave da OpenAI no Secret Manager, que é o backend usado hoje pelo app ([`functions/`](functions/)).
+- **Cloud Functions** — a mesma lógica portada para uma Firebase Function HTTP (`chat`, `southamerica-east1`) com Admin SDK e chave Gemini no Secret Manager, disponível como alternativa à API compartilhada ([`functions/`](functions/)).
 - **Regras de segurança do Firestore** — isolamento multi-tenant por `empresaId` e permissões por perfil em [`firestore.rules`](firestore.rules).
 - **No app Flutter** — tela do chat assistente ([`chat_assistente.dart`](lib/screens/chat_assistente.dart)), `ChatController`/`ChatService` e o painel do cliente ([`cliente.dart`](lib/screens/cliente.dart)).
 - **Testes da camada de IA** — 36 testes unitários de normalização, contexto e relevância, mais 4 testes de endpoint no runtime do Worker.
@@ -21,7 +25,7 @@ SmartLog é um app Android de gestão logística **multiempresa**. Cada empresa 
 | Perfil | O que faz no app |
 |---|---|
 | **Administrador** | Painel com indicadores da operação; cadastro de entregas, rotas, motoristas e clientes; geração de rota por região; mapa com a posição do motorista em movimento; perfil da empresa. |
-| **Motorista** | Rota do dia e lista de entregas, leitura de QR Code para dar baixa (Pendente → A Caminho → Entregue, com nome do recebedor), mapa das paradas, histórico e perfil com foto. |
+| **Motorista** | Rota do dia e lista de entregas, atualização de status pela API (Pendente → Em Rota → Entregue), mapa das paradas, histórico e perfil com foto. |
 | **Cliente** | Acompanhamento das próprias entregas em tempo real: status, endereço e motorista responsável. |
 
 Existe também uma tela de rastreio ([`rastreamento.dart`](lib/screens/rastreamento.dart)) que mostra no mapa a localização atual do motorista de uma rota; ela ainda não está ligada à navegação do app.
@@ -35,13 +39,19 @@ flowchart LR
     App["App Flutter<br/>(admin, motorista, cliente)"]
     Auth["Firebase Auth"]
     FS[("Cloud Firestore<br/>+ firestore.rules")]
-    Fn["Cloud Function chat<br/>(functions/)"]
+    API["API Spring Boot<br/>/api/v1/chat"]
+    Web["Painel Angular"]
+    Fn["Cloud Function alternativa<br/>(functions/)"]
     CW["Cloudflare Worker<br/>(smartlog-ai/)"]
-    AI["OpenAI<br/>gpt-4o-mini"]
+    AI["Gemini<br/>gemini-3.1-flash-lite"]
 
     App -- "login" --> Auth
     App -- "leitura e escrita em tempo real" --> FS
-    App -- "POST /chat + ID Token" --> Fn
+    App -- "status e chat + ID Token" --> API
+    Web -- "operação e chat + ID Token" --> API
+    API -- "Admin SDK, filtro por empresaId" --> FS
+    API --> AI
+    App -. "chat alternativo" .-> Fn
     App -. "POST /chat + ID Token<br/>(backend alternativo)" .-> CW
     Fn -- "Admin SDK, filtro por empresaId" --> FS
     CW -- "REST com o token do usuário<br/>(as rules continuam valendo)" --> FS
@@ -49,15 +59,15 @@ flowchart LR
     CW --> AI
 ```
 
-Fluxo do assistente: o app envia a pergunta com o ID Token no header `Authorization` → o backend valida o token e lê o cadastro do usuário (`usuarios/{uid}`) → monta o contexto só com os dados da empresa e do perfil dele → seleciona as entregas relevantes para a pergunta → chama a OpenAI com um prompt que proíbe inventar dados → devolve a resposta ao app.
+Fluxo do assistente: o app envia a pergunta com o ID Token no header `Authorization` → o backend valida o token e lê o cadastro do usuário (`usuarios/{uid}`) → monta o contexto só com os dados da empresa e do perfil dele → seleciona as entregas relevantes para a pergunta → chama o Gemini com um prompt que proíbe inventar dados → devolve a resposta ao app.
 
-Os dois backends têm o mesmo contrato (`POST /chat`). O app aponta hoje para a Cloud Function ([`lib/services/chat_service.dart`](lib/services/chat_service.dart)); trocar para o Worker é mudar a `baseUrl`. A pasta [`worker/`](worker/) guarda o primeiro protótipo do Worker, em que o contexto vinha do cliente, e foi substituída por `smartlog-ai/`.
+O app usa por padrão /api/v1/chat na API compartilhada. A Function e o Worker são alternativas explícitas. API_BASE_URL configura o servidor no build; CHAT_BASE_URL seleciona outra URL de chat. A pasta worker/ contém o protótipo antigo, substituído por smartlog-ai/.
 
 ## Stack
 
 - **App:** Flutter / Dart, Provider, Material 3, `google_maps_flutter`, `geolocator`, `mobile_scanner` (QR Code), `image_picker`
 - **Firebase:** Authentication, Cloud Firestore, Storage, Cloud Functions v2 (Node 24, `firebase-admin`, `openai`)
-- **IA:** Cloudflare Workers (Wrangler, WebCrypto para JWT, Firestore REST) + OpenAI Chat Completions
+- **IA:** Cloudflare Workers (Wrangler, WebCrypto para JWT, Firestore REST) + Gemini Developer API
 - **Testes:** Vitest, `@cloudflare/vitest-pool-workers`, `flutter_test`
 
 ## Estrutura
@@ -68,7 +78,7 @@ lib/                 App Flutter
   screens/           login, cadastro, dashboard_admin, motorista, cliente,
                      rastreamento, chat_assistente
   services/          auth, chat, maps (ViaCEP), routing
-functions/           Cloud Function "chat" (backend do assistente em uso)
+functions/           Cloud Function "chat" (alternativa ao chat da API)
 smartlog-ai/         Cloudflare Worker do assistente (JWT + Firestore REST)
 worker/              Protótipo antigo do Worker
 firestore.rules      Regras de segurança do Firestore
@@ -93,7 +103,7 @@ Para testar o fluxo completo: cadastre-se como **Administrador** (isso cria a em
 ```bash
 cd functions
 npm install
-firebase functions:secrets:set OPENAI_API_KEY   # chave fica no Secret Manager
+firebase functions:secrets:set GEMINI_API_KEY   # chave fica no Secret Manager
 npm run serve                                     # emulador local
 npm run deploy                                    # publica a função "chat"
 ```
@@ -105,11 +115,11 @@ As regras do Firestore são publicadas com `firebase deploy --only firestore:rul
 ```bash
 cd smartlog-ai
 npm ci
-cp .dev.vars.example .dev.vars   # preencha OPENAI_API_KEY (arquivo ignorado pelo git)
+cp .dev.vars.example .dev.vars   # preencha GEMINI_API_KEY (arquivo ignorado pelo git)
 npm run dev                      # wrangler dev
 ```
 
-Em produção a chave vai como secret: `npx wrangler secret put OPENAI_API_KEY` e depois `npm run deploy`.
+Em produção a chave vai como secret: `npx wrangler secret put GEMINI_API_KEY` e depois `npm run deploy`.
 
 ## Testes
 
@@ -127,3 +137,10 @@ flutter test
 
 - O pacote Dart ainda se chama `smartlife` e o `applicationId` Android é `com.example.smartlife`, herança do projeto que serviu de base. O ID precisa continuar igual ao registrado no Firebase (`google-services.json`), por isso não foi renomeado.
 - O CORS dos backends do assistente está aberto durante o MVP. A proteção real é o Bearer token.
+
+
+## Validação de 23/10/2026
+
+Passaram 8 testes Flutter, 6 do adaptador Gemini, 36 de contexto/relevância e 4 de endpoint Worker. O APK ARM64 está em build/app/outputs/flutter-apk/app-release.apk, com a assinatura de demonstração já configurada. A instalação, o GPS físico e o comportamento em segundo plano dependem de ensaio no tablet.
+
+A chave Gemini fica no servidor. Publique a API e as regras novas antes de validar o APK no hosting padrão. Consulte o guia integrado para emuladores, publicação e limites de verificação.

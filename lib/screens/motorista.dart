@@ -1,3 +1,8 @@
+import '../widgets/driver_road_map.dart';
+import '../widgets/confirm_delivery.dart';
+import '../widgets/driver_distance_card.dart';
+import '../widgets/voice_assistant.dart';
+import '../services/api_service.dart';
 // lib/screens/dashboard_motorista.dart
 import 'dart:math' as math;
 
@@ -5,7 +10,6 @@ import '../services/location_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
@@ -268,6 +272,7 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
         backgroundColor: AppTheme.primaryDark,
         foregroundColor: Colors.white,
         actions: [
+          const VoiceAssistantButton(),
           IconButton(
             icon: const Icon(Icons.support_agent),
             tooltip: "Assistente IA",
@@ -658,12 +663,8 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
                         Icons.check_circle_outline_rounded,
                         AppTheme.statusGreen,
                       ),
-                      _CardMetrica(
-                        'Distância',
-                        'N/D',
-                        Icons.route_rounded,
-                        Colors.blue,
-                      ),
+                      DriverDistanceCard(driverId: motoristaUid!, tenant: empresaId,
+                        deliveries: docs.map((d) => {...d.data(), 'docId': d.id}).toList()),
                       _CardMetrica(
                         'Eficiência',
                         '${eficiencia.toStringAsFixed(0)}%',
@@ -937,7 +938,7 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
               const SizedBox(height: 8),
 
               SizedBox(
-                height: 200,
+                height: 360,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: FutureBuilder<DocumentSnapshot>(
@@ -960,81 +961,14 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
                             .where('empresaId', isEqualTo: empresaId)
                             .snapshots(),
                         builder: (context, snapshot) {
-                          Set<Marker> marcadores = {};
-                          Set<Polyline> polylines = {};
-                          List<LatLng> pontosDaRota = [];
-                          LatLng posicaoInicial = const LatLng(-23.550520, -46.633308);
-
-                          if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                            final docsOrdenados = List<QueryDocumentSnapshot>.from(snapshot.data!.docs);
-                            docsOrdenados.sort((a, b) {
-                              final da = a.data() as Map<String, dynamic>;
-                              final db = b.data() as Map<String, dynamic>;
-                              final oa = da['ordemEntrega'];
-                              final ob = db['ordemEntrega'];
-                              final na = oa is num ? oa.toInt() : 1 << 30;
-                              final nb = ob is num ? ob.toInt() : 1 << 30;
-                              return na.compareTo(nb);
-                            });
-                            for (var doc in docsOrdenados) {
-                              final data = doc.data() as Map<String, dynamic>;
-                              final latValor = data['latitude'];
-                              final lngValor = data['longitude'];
-                              final double? lat = latValor is num ? latValor.toDouble() : null;
-                              final double? lng = lngValor is num ? lngValor.toDouble() : null;
-                              final String status = (data['status'] ?? 'Pendente').toString();
-                              final String cliente = (data['cliente'] ?? 'Cliente').toString();
-                              final String idAmigavel = (data['Id'] ?? data['id'] ?? 'ENT').toString();
-
-                              if (lat != null && lng != null) {
-                                final LatLng coordenadaPonto = LatLng(lat, lng);
-                                posicaoInicial = coordenadaPonto;
-                                pontosDaRota.add(coordenadaPonto);
-
-                                double hueCor = BitmapDescriptor.hueRed;
-                                if (status == 'Em Rota') {
-                                  hueCor = BitmapDescriptor.hueOrange;
-                                } else if (status == 'Entregue' || status == 'entregue') {
-                                  hueCor = BitmapDescriptor.hueGreen;
-                                }
-
-                                marcadores.add(
-                                  Marker(
-                                    markerId: MarkerId(doc.id),
-                                    position: coordenadaPonto,
-                                    icon: BitmapDescriptor.defaultMarkerWithHue(hueCor),
-                                    infoWindow: InfoWindow(
-                                      title: "$idAmigavel - $cliente",
-                                      snippet: "Status: $status",
-                                    ),
-                                  ),
-                                );
-                              }
-                            }
-
-                            // Adiciona a linha conectando as paradas, caso haja mais de um ponto
-                            if (pontosDaRota.length > 1) {
-                              polylines.add(
-                                Polyline(
-                                  polylineId: const PolylineId('rota_motorista'),
-                                  points: pontosDaRota,
-                                  color: AppTheme.accentOrange,
-                                  width: 4,
-                                ),
-                              );
-                            }
-                          }
-
-                          return GoogleMap(
-                            initialCameraPosition: CameraPosition(
-                              target: posicaoInicial,
-                              zoom: 13,
-                            ),
-                            markers: marcadores,
-                            polylines: polylines,
-                            myLocationEnabled: true,
-                            myLocationButtonEnabled: true,
-                            zoomControlsEnabled: false,
+                          if (snapshot.hasError) return const Center(child: Text('Não foi possível consultar as paradas.'));
+                          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+                          return DriverRoadMap(
+                            driverId: motoristaUid,
+                            tenant: empresaId,
+                            deliveries: snapshot.data!.docs.map((doc) => {
+                              ...doc.data() as Map<String,dynamic>, 'docId': doc.id,
+                            }).toList(),
                           );
                         },
                       );
@@ -1405,19 +1339,11 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
         debugPrint('Novo status: $novoStatus');
 
         try {
-          final atualizacao = <String, dynamic>{
-            'status': novoStatus,
-          };
-
           if (novoStatus == 'Entregue') {
-            atualizacao['entregueEm'] =
-                FieldValue.serverTimestamp();
+            if (!await confirmDelivery(ctx, docId)) return;
+          } else {
+            await ApiService.atualizarStatusNoServidor(docId, novoStatus);
           }
-
-          await FirebaseFirestore.instance
-              .collection('entregas')
-              .doc(docId)
-              .update(atualizacao);
 
           debugPrint('Status atualizado com sucesso.');
 

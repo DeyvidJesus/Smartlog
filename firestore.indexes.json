@@ -1,0 +1,47 @@
+{
+  "fieldOverrides": [],
+  "indexes": [
+    {
+      "queryScope": "COLLECTION",
+      "collectionGroup": "entregas",
+      "fields": [
+        {
+          "fieldPath": "empresaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "motoristaId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "queryScope": "COLLECTION",
+      "collectionGroup": "entregas",
+      "fields": [
+        {
+          "fieldPath": "empresaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "emailCliente",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "queryScope": "COLLECTION",
+      "collectionGroup": "rotas",
+      "fields": [
+        {
+          "fieldPath": "empresaId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "motoristaId",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ]
+}

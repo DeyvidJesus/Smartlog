@@ -1,6 +1,6 @@
 # Modelo para desenvolvimento local do Worker.
 # Copie para .dev.vars e preencha:  cp .dev.vars.example .dev.vars
 # O .dev.vars é ignorado pelo git e usado apenas por `wrangler dev`.
-# Em produção a chave vai por: npx wrangler secret put OPENAI_API_KEY
+# Em produção a chave vai por: npx wrangler secret put GEMINI_API_KEY
 
-OPENAI_API_KEY=your_openai_api_key_here
+GEMINI_API_KEY=your_openai_api_key_here

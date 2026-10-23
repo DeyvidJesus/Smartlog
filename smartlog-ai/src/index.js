@@ -1,13 +1,14 @@
+import {consultarModelo} from "../../functions/ai-provider.js";
 /**
  * SmartLog — AI Logistics Assistant (Cloudflare Worker)
  *
- * Fluxo: Flutter → Firebase ID Token → POST /chat → Firestore → OpenAI
+ * Fluxo: Flutter → Firebase ID Token → POST /chat → Firestore → Gemini
  *
  * A identidade vem EXCLUSIVAMENTE do token verificado criptograficamente.
  * Nada que o cliente envie no corpo (uid, perfil, empresaId, contexto) é
  * usado para autenticar, autorizar ou montar o contexto do modelo.
  *
- * A chave da OpenAI existe apenas como secret do Worker (env.OPENAI_API_KEY)
+ * A chave da Gemini existe apenas como secret do Worker (env.GEMINI_API_KEY)
  * e nunca aparece em código, log, resposta ou Git.
  */
 
@@ -25,11 +26,11 @@ import {selecionar, codigosInexistentes} from "./relevancia.js";
 const PROJECT_ID = "smartlog-b9b37";
 
 // Preservados do backend anterior
-const MODELO_PADRAO = "gpt-4o-mini";
-const TEMPERATURA = 0.2;
+const MODELO_PADRAO = "gemini-3.1-flash-lite";
+
 // 500 truncava qualquer resposta em lista no meio — o usuário lia isso como
 // "o assistente não achou os dados".
-const MAX_TOKENS = 900;
+
 const MAX_PERGUNTA = 500;
 const MAX_HISTORICO = 6;
 const MAX_TEXTO_HISTORICO = 1500;
@@ -104,7 +105,7 @@ function sanitizar(t) {
 }
 
 /**
- * Normaliza o histórico para o formato de mensagens da OpenAI.
+ * Normaliza o histórico para o formato de mensagens da Gemini.
  *
  * @param {*} historico Lista bruta do cliente.
  * @return {Array<Object>} Mensagens role/content.
@@ -121,7 +122,7 @@ function montarHistorico(historico) {
 }
 
 /**
- * Chama a OpenAI. Só é invocada após a autenticação ter sucesso.
+ * Chama a Gemini. Só é invocada após a autenticação ter sucesso.
  *
  * @param {string} apiKey Secret do Worker.
  * @param {string} modelo Modelo a usar.
@@ -130,7 +131,7 @@ function montarHistorico(historico) {
  * @param {Array<Object>} historico Mensagens anteriores.
  * @return {Promise<string>} Texto da resposta.
  */
-async function consultarOpenAI(apiKey, modelo, pergunta, contexto, historico) {
+async function consultarIA(apiKey, modelo, pergunta, contexto, historico) {
   const mensagens = [
     {role: "system", content: PROMPT_SISTEMA},
     ...historico,
@@ -145,32 +146,7 @@ async function consultarOpenAI(apiKey, modelo, pergunta, contexto, historico) {
     },
   ];
 
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: modelo,
-      messages: mensagens,
-      temperature: TEMPERATURA,
-      max_tokens: MAX_TOKENS,
-    }),
-  });
-
-  if (!r.ok) {
-    console.error("OpenAI falhou:", r.status);
-    if (r.status === 429) throw new Error("LIMITE");
-    if (r.status === 401) throw new Error("CREDENCIAL");
-    throw new Error("UPSTREAM");
-  }
-
-  const d = await r.json();
-  const texto = d && d.choices && d.choices[0] && d.choices[0].message ?
-    d.choices[0].message.content :
-    "";
-  return String(texto || "").trim();
+  return consultarModelo({apiKey, modelo, mensagens});
 }
 
 export default {
@@ -206,8 +182,8 @@ export default {
     // ── 2. UID: única fonte confiável de identidade ───────────────
     const uid = claims.sub;
 
-    if (!env.OPENAI_API_KEY) {
-      console.error("OPENAI_API_KEY ausente no ambiente do Worker");
+    if (!env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY ausente no ambiente do Worker");
       return erro("Assistente sem configuração no servidor.", 503);
     }
 
@@ -338,11 +314,11 @@ export default {
       return erro("Não foi possível consultar os dados da operação.", 502);
     }
 
-    // ── 6. OpenAI — só chega aqui com identidade confirmada ──────
+    // ── 6. Gemini — só chega aqui com identidade confirmada ──────
     try {
-      const resposta = await consultarOpenAI(
-          env.OPENAI_API_KEY,
-          env.OPENAI_MODEL || MODELO_PADRAO,
+      const resposta = await consultarIA(
+          env.GEMINI_API_KEY,
+          env.GEMINI_MODEL || MODELO_PADRAO,
           pergunta,
           contexto,
           historico,

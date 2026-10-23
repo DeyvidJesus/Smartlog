@@ -61,3 +61,10 @@ app.*.map.json
 
 # Sessões do compilador Kotlin, geradas a cada build do Gradle
 /android/.kotlin/
+
+# Artefatos efêmeros gerados pelo Flutter para outras plataformas
+/ios/
+/linux/
+/macos/
+/windows/
+
