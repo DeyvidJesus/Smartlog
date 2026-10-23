@@ -11,6 +11,7 @@ import '../controllers/dashboard_controller.dart';
 import '../theme/app_theme.dart';
 import 'chat_assistente.dart';
 import '../services/maps_service.dart';
+import '../screens/mapas.dart';
 
 class DashboardAdmin extends StatefulWidget {
   const DashboardAdmin({super.key});
@@ -55,92 +56,151 @@ class _DashboardAdminState extends State<DashboardAdmin> {
     super.dispose();
   }
 
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<DashboardController>();
     final String abaAtual = _titulosAbas[_indiceTabAtual];
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F6FA),
       appBar: AppBar(
-        title: Text("SmartLog • $abaAtual"),
+        elevation: 0,
         backgroundColor: AppTheme.primaryDark,
         foregroundColor: Colors.white,
+        titleSpacing: 20,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.local_shipping_rounded,
+                color: AppTheme.accentOrange,
+                size: 25,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'SmartLog',
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  Text(
+                    abaAtual,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.7),
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: "Recarregar Dados",
+            tooltip: 'Atualizar dados',
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: () {
               if (controller.empresaId != null) {
                 controller.inicializarDados(controller.empresaId!);
+              } else {
+                controller.carregarEntregas();
               }
             },
           ),
           IconButton(
-            icon: const Icon(Icons.support_agent),
-            tooltip: "Assistente IA",
+            tooltip: 'Assistente de IA',
+            icon: const Icon(Icons.auto_awesome_rounded),
             onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => ChatAssistenteScreen(
-                  perfil: "ADMINISTRADOR",
-                  uid: FirebaseAuth.instance.currentUser?.uid ?? "",
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ChatAssistenteScreen(
+                    perfil: 'ADMINISTRADOR',
+                    uid: FirebaseAuth.instance.currentUser?.uid ?? '',
+                  ),
                 ),
-              ));
+              );
             },
           ),
+          const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        child: _renderizarConteudo(controller),
+      body: SafeArea(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 250),
+          child: _renderizarConteudo(controller),
+        ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _indiceTabAtual,
-        onTap: (index) {
-          setState(() {
-            _indiceTabAtual = index;
-          });
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppTheme.accentOrange,
-        unselectedItemColor: AppTheme.statusGrey,
-        selectedLabelStyle:
-        const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-        unselectedLabelStyle: const TextStyle(fontSize: 11),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
-            label: "Painel",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.local_shipping_outlined),
-            activeIcon: Icon(Icons.local_shipping),
-            label: "Entregas",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map_outlined),
-            activeIcon: Icon(Icons.map),
-            label: "Rotas",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.badge_outlined),
-            activeIcon: Icon(Icons.badge),
-            label: "Motoristas",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.store_outlined),
-            activeIcon: Icon(Icons.store),
-            label: "Clientes",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: "Perfil",
-          ),
-        ],
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _indiceTabAtual,
+          onDestinationSelected: (index) {
+            setState(() => _indiceTabAtual = index);
+          },
+          backgroundColor: Colors.white,
+          indicatorColor: AppTheme.accentOrange.withOpacity(0.14),
+          elevation: 0,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          height: 72,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard_rounded),
+              label: 'Painel',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.local_shipping_outlined),
+              selectedIcon: Icon(Icons.local_shipping_rounded),
+              label: 'Entregas',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.alt_route_rounded),
+              label: 'Rotas',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.badge_outlined),
+              selectedIcon: Icon(Icons.badge_rounded),
+              label: 'Motoristas',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.store_outlined),
+              selectedIcon: Icon(Icons.store_rounded),
+              label: 'Clientes',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded),
+              selectedIcon: Icon(Icons.person_rounded),
+              label: 'Perfil',
+            ),
+          ],
+        ),
       ),
     );
   }
+
 
   Widget _renderizarConteudo(DashboardController controller) {
     switch (_indiceTabAtual) {
@@ -162,51 +222,205 @@ class _DashboardAdminState extends State<DashboardAdmin> {
   }
 
   // 1. DASHBOARD PRINCIPAL
+
   Widget _buildDashboardPrincipal(DashboardController controller) {
-    return SingleChildScrollView(
-      key: const ValueKey("DashboardView"),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Visão Geral da Operação",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.primaryDark,
-            ),
-          ),
-          const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 1.4,
+    return LayoutBuilder(
+      key: const ValueKey('DashboardView'),
+      builder: (context, constraints) {
+        final largura = constraints.maxWidth;
+        final colunas = largura >= 900 ? 4 : largura >= 600 ? 3 : 2;
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.all(largura >= 600 ? 28 : 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _CardDashboard("Total Entregas", controller.totalEntregas.toString(),
-                  Icons.inventory_2_outlined, Colors.blue),
-              _CardDashboard(
-                  "Motoristas Ativos",
-                  controller.totalMotoristasAtivos.toString(),
-                  Icons.delivery_dining_outlined,
-                  AppTheme.statusGreen),
-              _CardDashboard(
-                  "Clientes Parceiros",
-                  controller.totalClientesCadastrados.toString(),
-                  Icons.people_outline,
-                  Colors.purple),
-              _CardDashboard("Rotas Criadas", controller.rotas.length.toString(),
-                  Icons.alt_route, AppTheme.accentOrange),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      Color(0xFF142B4A),
+                      Color(0xFF234B76),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF142B4A).withOpacity(0.16),
+                      blurRadius: 18,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'PAINEL ADMINISTRATIVO',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Visão geral da operação',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 23,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Acompanhe os indicadores logísticos da sua empresa.',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.78),
+                              fontSize: 13,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.inventory_2_rounded,
+                      size: largura < 400 ? 42 : 64,
+                      color: AppTheme.accentOrange,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 28),
+              const Text(
+                'Resumo da operação',
+                style: TextStyle(
+                  color: Color(0xFF172B4D),
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Indicadores atualizados conforme os dados carregados.',
+                style: TextStyle(
+                  color: Color(0xFF78869A),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 18),
+              GridView.count(
+                crossAxisCount: colunas,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisSpacing: 14,
+                mainAxisSpacing: 18,
+                childAspectRatio: largura < 360 ? 0.85 : 1.05,
+                children: [
+                  _CardDashboard(
+                    'Total de entregas',
+                    controller.totalEntregas.toString(),
+                    Icons.inventory_2_outlined,
+                    const Color(0xFF3976D2),
+                  ),
+                  _CardDashboard(
+                    'Motoristas ativos',
+                    controller.totalMotoristasAtivos.toString(),
+                    Icons.delivery_dining_rounded,
+                    const Color(0xFF1A9B72),
+                  ),
+                  _CardDashboard(
+                    'Clientes parceiros',
+                    controller.totalClientesCadastrados.toString(),
+                    Icons.groups_rounded,
+                    const Color(0xFF8157C7),
+                  ),
+                  _CardDashboard(
+                    'Rotas criadas',
+                    controller.rotas.length.toString(),
+                    Icons.alt_route_rounded,
+                    AppTheme.accentOrange,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 26),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFFE8EDF4)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.accentOrange.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.route_rounded,
+                        color: AppTheme.accentOrange,
+                        size: 25,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Gestão logística',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                              color: Color(0xFF172B4D),
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Acesse as abas para administrar entregas, '
+                                'rotas, motoristas e clientes.',
+                            style: TextStyle(
+                              color: Color(0xFF78869A),
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 20),
-        ],
-      ),
+        );
+      },
     );
   }
+
 
   // 2. ENTREGAS (Admin)
   Widget _buildAbaEntregas(DashboardController controller) {
@@ -494,9 +708,10 @@ class _DashboardAdminState extends State<DashboardAdmin> {
   void _modalCadastroEntrega(
       BuildContext context, DashboardController controller) {
     final clienteCtrl = TextEditingController();
-    final emailCtrl = TextEditingController(); // <- Controlador para o e-mail do cliente
+    final emailCtrl = TextEditingController();
     final enderecoCtrl = TextEditingController();
     final dataCtrl = TextEditingController(text: "2026-09-22");
+
     String zonaSelecionadaModal = "Sul";
 
     String? motoristaResponsavelId = controller.motoristas.isNotEmpty
@@ -507,7 +722,9 @@ class _DashboardAdminState extends State<DashboardAdmin> {
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
       ),
       builder: (ctx) {
         return StatefulBuilder(
@@ -526,47 +743,68 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                     const Text(
                       "Cadastrar Nova Entrega",
                       style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryDark),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryDark,
+                      ),
                     ),
+
                     const SizedBox(height: 16),
+
+                    // =========================
+                    // NOME DO CLIENTE
+                    // =========================
                     TextField(
                       controller: clienteCtrl,
                       decoration: const InputDecoration(
-                          labelText: "Nome do Cliente",
-                          border: OutlineInputBorder()),
+                        labelText: "Nome do Cliente",
+                        border: OutlineInputBorder(),
+                      ),
                     ),
+
                     const SizedBox(height: 12),
-                    // <- Novo campo de E-mail do Cliente inserido aqui
+
+                    // =========================
+                    // E-MAIL DO CLIENTE
+                    // =========================
                     TextField(
                       controller: emailCtrl,
                       keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
-                          labelText: "E-mail do Cliente (Para rastreio)",
-                          hintText: "cliente@email.com",
-                          border: OutlineInputBorder()),
+                        labelText: "E-mail do Cliente (Para rastreio)",
+                        hintText: "cliente@email.com",
+                        border: OutlineInputBorder(),
+                      ),
                     ),
+
                     const SizedBox(height: 12),
+
+                    // =========================
+                    // ENDEREÇO
+                    // =========================
                     TextField(
                       controller: enderecoCtrl,
                       decoration: InputDecoration(
                         labelText: "Endereço ou CEP (Ex: Rua Augusta, 500)",
                         border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
-                          icon: const Icon(Icons.search,
-                              color: AppTheme.primaryDark),
+                          icon: const Icon(
+                            Icons.search,
+                            color: AppTheme.primaryDark,
+                          ),
                           tooltip: "Buscar Região via Google Maps",
                           onPressed: () async {
                             if (enderecoCtrl.text.trim().isEmpty) return;
 
                             final resultado =
                             await MapsService.identificarRegiaoPorEndereco(
-                                enderecoCtrl.text);
+                              enderecoCtrl.text,
+                            );
 
                             if (resultado != null) {
                               setModalState(() {
-                                zonaSelecionadaModal = resultado['regiao'];
+                                zonaSelecionadaModal =
+                                resultado['regiao'];
                                 enderecoCtrl.text =
                                 resultado['enderecoFormatado'];
                               });
@@ -574,16 +812,22 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                               if (modalContext.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                      content: Text(
-                                          "Região identificada: $zonaSelecionadaModal")),
+                                    content: Text(
+                                      "Região identificada: "
+                                          "$zonaSelecionadaModal",
+                                    ),
+                                  ),
                                 );
                               }
                             } else {
                               if (modalContext.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                      content: Text(
-                                          "Endereço não encontrado. Verifique os dados.")),
+                                    content: Text(
+                                      "Endereço não encontrado. "
+                                          "Verifique os dados.",
+                                    ),
+                                  ),
                                 );
                               }
                             }
@@ -591,43 +835,75 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 12),
+
+                    // =========================
+                    // DATA
+                    // =========================
                     TextField(
                       controller: dataCtrl,
                       decoration: const InputDecoration(
-                          labelText: "Data (AAAA-MM-DD)",
-                          border: OutlineInputBorder()),
+                        labelText: "Data (AAAA-MM-DD)",
+                        border: OutlineInputBorder(),
+                      ),
                     ),
+
                     const SizedBox(height: 12),
+
+                    // =========================
+                    // REGIÃO
+                    // =========================
                     DropdownButtonFormField<String>(
                       value: zonaSelecionadaModal,
                       decoration: const InputDecoration(
-                          labelText: "Região de SP",
-                          border: OutlineInputBorder()),
-                      items: ["Norte", "Sul", "Leste", "Oeste", "Centro"]
+                        labelText: "Região de SP",
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        "Norte",
+                        "Sul",
+                        "Leste",
+                        "Oeste",
+                        "Centro",
+                      ]
                           .map(
-                              (z) => DropdownMenuItem(value: z, child: Text(z)))
+                            (z) => DropdownMenuItem(
+                          value: z,
+                          child: Text(z),
+                        ),
+                      )
                           .toList(),
                       onChanged: (val) {
                         if (val != null) {
-                          setModalState(() => zonaSelecionadaModal = val);
+                          setModalState(() {
+                            zonaSelecionadaModal = val;
+                          });
                         }
                       },
                     ),
+
                     const SizedBox(height: 12),
+
+                    // =========================
+                    // MOTORISTA
+                    // =========================
                     DropdownButtonFormField<String>(
-                      value: controller.motoristas
-                          .any((m) => m['id'] == motoristaResponsavelId)
+                      value: controller.motoristas.any(
+                              (m) => m['id'] == motoristaResponsavelId)
                           ? motoristaResponsavelId
                           : (controller.motoristas.isNotEmpty
                           ? controller.motoristas.first['id']
                           : null),
                       decoration: const InputDecoration(
-                          labelText: "Motorista Responsável",
-                          border: OutlineInputBorder()),
+                        labelText: "Motorista Responsável",
+                        border: OutlineInputBorder(),
+                      ),
                       items: controller.motoristas.map((m) {
                         final idMotorista = m['id'] as String;
-                        final nomeMotorista = m['nome'] ?? 'Motorista';
+                        final nomeMotorista =
+                            m['nome'] ?? 'Motorista';
+
                         return DropdownMenuItem<String>(
                           value: idMotorista,
                           child: Text(nomeMotorista),
@@ -635,82 +911,98 @@ class _DashboardAdminState extends State<DashboardAdmin> {
                       }).toList(),
                       onChanged: (val) {
                         if (val != null) {
-                          setModalState(() => motoristaResponsavelId = val);
+                          setModalState(() {
+                            motoristaResponsavelId = val;
+                          });
                         }
                       },
                     ),
+
                     const SizedBox(height: 20),
+
+                    // =========================
+                    // SALVAR
+                    // =========================
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
-                          if (clienteCtrl.text.isNotEmpty &&
-                              enderecoCtrl.text.isNotEmpty) {
-                            if (controller.empresaId != null) {
-                              final motoristaSelecionadoObj =
-                              controller.motoristas.firstWhere(
-                                    (m) => m['id'] == motoristaResponsavelId,
-                                orElse: () => {
-                                  'id': '',
-                                  'nome': 'Não atribuído'
-                                },
-                              );
+                          // Validação
+                          if (clienteCtrl.text.trim().isEmpty ||
+                              enderecoCtrl.text.trim().isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Preencha o nome do cliente e o endereço.",
+                                ),
+                              ),
+                            );
+                            return;
+                          }
 
-                              final nomeMotoristaFinal =
-                                  motoristaSelecionadoObj['nome'] ??
-                                      'Não atribuído';
-                              final idMotoristaFinal =
-                                  motoristaSelecionadoObj['id'] ?? '';
+                          if (controller.empresaId == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Empresa não identificada.",
+                                ),
+                              ),
+                            );
+                            return;
+                          }
 
-                              final nomeCliente = clienteCtrl.text.trim();
-                              final emailCliente = emailCtrl.text.trim();
-                              final empresaId = controller.empresaId!;
+                          // ID do motorista selecionado
+                          final motoristaSelecionadoObj =
+                          controller.motoristas.firstWhere(
+                                (m) => m['id'] == motoristaResponsavelId,
+                            orElse: () => {
+                              'id': '',
+                              'nome': 'Não atribuído',
+                            },
+                          );
 
-                              // 1. Verificar se o cliente já existe na coleção 'clientes' da empresa
-                              final clienteQuery = await FirebaseFirestore.instance
-                                  .collection('clientes')
-                                  .where('empresaId', isEqualTo: empresaId)
-                                  .where('nome', isEqualTo: nomeCliente)
-                                  .get();
+                          final idMotoristaFinal =
+                              motoristaSelecionadoObj['id'] ?? '';
 
-                              if (clienteQuery.docs.isEmpty) {
-                                // Se não existe, cadastra automaticamente na coleção 'clientes'
-                                await FirebaseFirestore.instance.collection('clientes').add({
-                                  'empresaId': empresaId,
-                                  'nome': nomeCliente,
-                                  'email': emailCliente.isNotEmpty ? emailCliente : 'E-mail não informado',
-                                  'endereco': enderecoCtrl.text.trim(),
-                                  'criadoEm': FieldValue.serverTimestamp(),
-                                });
-                              }
+                          // =====================================================
+                          // CADASTRA/ATUALIZA CLIENTE + CADASTRA ENTREGA
+                          // =====================================================
 
-                              // 2. Salva a entrega normalmente
-                              final docRef = await FirebaseFirestore.instance
-                                  .collection('entregas')
-                                  .add({
-                                'empresaId': empresaId,
-                                'cliente': nomeCliente,
-                                'emailCliente': emailCliente,
-                                'endereco': enderecoCtrl.text.trim(),
-                                'data': dataCtrl.text.trim(),
-                                'regiao': zonaSelecionadaModal,
-                                'motorista': nomeMotoristaFinal,
-                                'motoristaId': idMotoristaFinal,
-                                'status': 'Pendente',
-                                // Sem esta data não há como calcular atraso:
-                                // o assistente respondia "0 atrasadas" sempre.
-                                'criadoEm': FieldValue.serverTimestamp(),
-                              });
+                          final sucesso = await controller
+                              .cadastrarEntregaESincronizarCliente(
+                            clienteNome: clienteCtrl.text.trim(),
+                            clienteEmail: emailCtrl.text.trim(),
+                            endereco: enderecoCtrl.text.trim(),
+                            regiao: zonaSelecionadaModal,
+                            motoristaId: idMotoristaFinal,
+                            dataAgendada: dataCtrl.text.trim(),
+                          );
 
-                              await docRef
-                                  .update({'id': codigoEntrega(docRef.id)});
+                          // =====================================================
+                          // RESULTADO
+                          // =====================================================
 
-                              // 3. Atualiza os dados no controller para refletir nas telas
-                              await controller.carregarEntregas();
-                            }
-                            if (modalContext.mounted) {
-                              Navigator.pop(modalContext);
-                            }
+                          if (!modalContext.mounted) return;
+
+                          if (sucesso) {
+                            Navigator.pop(modalContext);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Entrega cadastrada e cliente "
+                                      "adicionado com sucesso!",
+                                ),
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Não foi possível cadastrar a entrega.",
+                                ),
+                              ),
+                            );
                           }
                         },
                         child: const Text("Salvar Entrega"),
@@ -1006,6 +1298,7 @@ class _DashboardAdminState extends State<DashboardAdmin> {
     );
   }
 
+
   // 4. MOTORISTAS
   Widget _buildAbaMotoristas(DashboardController controller) {
     return Padding(
@@ -1020,46 +1313,118 @@ class _DashboardAdminState extends State<DashboardAdmin> {
               const Text(
                 "Equipe de Motoristas",
                 style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryDark),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryDark,
+                ),
               ),
               ElevatedButton.icon(
-                onPressed: () => _modalCadastroMotorista(context, controller),
+                onPressed: () =>
+                    _modalCadastroMotorista(context, controller),
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text("Cadastrar"),
-              )
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Expanded(
             child: controller.motoristas.isEmpty
-                ? const Center(child: Text("Nenhum motorista cadastrado."))
+                ? const Center(
+              child: Text("Nenhum motorista cadastrado."),
+            )
                 : ListView.builder(
               itemCount: controller.motoristas.length,
               itemBuilder: (context, index) {
                 final m = controller.motoristas[index];
+
                 return Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
+
+                    onTap: () {
+                      final motoristaId = m['id']?.toString();
+
+                      final rotasDoMotorista = controller.rotas.where((r) {
+                        return r['motoristaId']?.toString() == motoristaId;
+                      }).toList();
+
+                      if (rotasDoMotorista.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Este motorista não possui uma rota designada.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (rotasDoMotorista.length > 1) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Este motorista possui mais de uma rota. '
+                                  'Selecione a rota correta.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      final rota = rotasDoMotorista.first;
+                      final rotaId = rota['id']?.toString();
+
+                      if (rotaId == null || rotaId.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'A rota não possui um ID válido.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MapScreen(
+                            rota: rota,
+                            rotaId: rotaId,
+                            motoristaNome: m['nome']?.toString() ?? 'Motorista',
+                          ),
+                        ),
+                      );
+                    },
+
                     leading: const CircleAvatar(
                       backgroundColor: AppTheme.accentOrange,
-                      child: Icon(Icons.person, color: Colors.white),
+                      child: Icon(
+                        Icons.person,
+                        color: Colors.white,
+                      ),
                     ),
-                    title: Text(m['nome'] ?? 'Motorista',
-                        style:
-                        const TextStyle(fontWeight: FontWeight.bold)),
+                    title: Text(
+                      m['nome']?.toString() ?? 'Motorista',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     subtitle: Text(
-                        "${m['email']} • Região: ${m['regiaoDesignada'] ?? m['regiao'] ?? 'Geral'}"),
+                      "${m['email'] ?? 'Sem e-mail'} • Região: "
+                          "${m['regiaoDesignada'] ?? m['regiao'] ?? 'Geral'}",
+                    ),
+                    trailing: const Icon(Icons.map_outlined),
                   ),
                 );
               },
             ),
-          )
+          ),
         ],
       ),
     );
   }
+
 
   void _modalCadastroMotorista(
       BuildContext context, DashboardController controller) {
@@ -1437,46 +1802,73 @@ class _DashboardAdminState extends State<DashboardAdmin> {
 }
 
 // Widget auxiliar renomeado para evitar conflito de escopo
+
 class _CardDashboard extends StatelessWidget {
   final String titulo;
   final String valor;
   final IconData icone;
   final Color cor;
 
-  const _CardDashboard(this.titulo, this.valor, this.icone, this.cor);
+  const _CardDashboard(
+      this.titulo,
+      this.valor,
+      this.icone,
+      this.cor,
+      );
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icone, color: cor, size: 26),
-                Text(
-                  valor,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ],
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE8EDF4)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF172B4D).withOpacity(0.035),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: cor.withOpacity(0.11),
+              borderRadius: BorderRadius.circular(13),
             ),
-            const SizedBox(height: 8),
-            Text(
-              titulo,
+            child: Icon(icone, color: cor, size: 23),
+          ),
+          const SizedBox(height: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              valor,
               style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.statusGrey,
-                  fontWeight: FontWeight.w600),
+                color: Color(0xFF172B4D),
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            titulo,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF78869A),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }

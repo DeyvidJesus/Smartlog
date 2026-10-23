@@ -1,7 +1,4 @@
 // lib/services/routing_service.dart
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
 class RoutingService {
   // Exemplo usando uma API de rotas ou lógica de ordenação por proximidade/tráfego
   static Future<Map<String, dynamic>> calcularMelhorRota({

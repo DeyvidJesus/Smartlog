@@ -3,4 +3,4 @@
 # O .dev.vars é ignorado pelo git e usado apenas por `wrangler dev`.
 # Em produção a chave vai por: npx wrangler secret put OPENAI_API_KEY
 
-OPENAI_API_KEY=sk-proj-substitua-pela-sua-chave
+OPENAI_API_KEY=your_openai_api_key_here
