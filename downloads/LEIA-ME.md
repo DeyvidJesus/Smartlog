@@ -1,22 +1,31 @@
-# SmartLog 1.1.0 para Android ARM64
+# SmartLog 1.1.1 para Android ARM64
 
-[Baixar ZIP com o APK atualizado](https://github.com/DeyvidJesus/Smartlog/raw/refs/heads/downloads/android-arm64/downloads/SmartLog-1.1.0-arm64.zip)
+[Baixar ZIP com o APK atualizado](https://raw.githubusercontent.com/DeyvidJesus/Smartlog/refs/heads/downloads/android-arm64/downloads/SmartLog-1.1.1-arm64.zip)
 
-1. Baixe o ZIP e extraia `SmartLog-1.1.0-arm64.apk`.
-2. Abra o APK em um aparelho Android ARM64 e autorize a instalação pelo navegador/gerenciador de arquivos, se solicitado.
+1. Baixe o ZIP e extraia `SmartLog-1.1.1-arm64.apk`.
+2. Abra o APK no Android e autorize a instalação, se solicitado.
+3. Use os mesmos acessos existentes.
 
-APK compilado a partir do commit `e23c8a3967823a9d3402b6c4da317403c5bca874`.
-Inclui comprovante com foto, assinatura e GPS, registro de ocorrências e
-acompanhamento pelo cliente. A API configurada é
+Versão **1.1.1**, build **4**. Requer Android **7.0 ou superior**, aparelho **ARM64**.
+
+Código-fonte: [`347de6d`](https://github.com/DeyvidJesus/Smartlog/commit/347de6dcfc397c2663c525371431f24e09a3ed69).
+Compilado em 24/10/2026 com Flutter 3.47.8, modo release,
+`--target-platform android-arm64 --build-name=1.1.1 --build-number=4`.
+`API_BASE_URL` e `CHAT_BASE_URL` usam
 `https://smartlog-next-2026.netlify.app/api/v1`.
 
+Inclui os recursos existentes de comprovante com foto, assinatura e GPS, registro
+de ocorrências e acompanhamento pelo cliente. A versão foi reconstruída com
+a configuração explícita da API e do assistente de produção.
+
+O certificado de assinatura corresponde ao APK 1.1.0 anteriormente distribuído
+neste repositório. A assinatura e a versão foram verificadas nas ferramentas Android.
+O ZIP foi testado e seu APK extraído corresponde ao arquivo compilado.
+
 SHA-256 do APK extraído:
-`5f38cc3c7df5b3350f623af48909f1b94dec4a5de8ae7268a67d7e2ef97a7f57`
+`20a916e425942dcd516768cb1ea5e840b5ac51522bb7950dae9b824ce7794c25`
 
-Os novos recursos exigem a publicação conjunta da API (`f5411a3`) e do Web
-(`cf0ff59`). Faça merge dos PRs da API e do app e, por último, do PR Web que
-dispara o deploy. Antes desse deploy, os endpoints novos ainda não estão
-disponíveis em produção.
+SHA-256 do ZIP:
+`e2829f36b51bb3f6f6b38cb09473fdcbf4897c7a7b2aeab42e9bcd5aa8f5e496`
 
-O APK mantém a assinatura de debug existente no projeto. Para atualizar uma
-instalação anterior, o certificado precisa ser compatível.
+[Arquivo de checksum](https://raw.githubusercontent.com/DeyvidJesus/Smartlog/refs/heads/downloads/android-arm64/downloads/SmartLog-1.1.1-arm64.zip.sha256). O arquivo `SmartLog-Android-arm64.zip` também aponta para esta versão.
