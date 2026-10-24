@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../controllers/chat_controller.dart';
 import '../controllers/dashboard_controller.dart';
 import '../models/chat_mensagem.dart';
+import '../theme/app_theme.dart';
 import '../widgets/voice_assistant.dart';
 
 /// Resume a operação exibida na tela para enviar como contexto ao assistente.
@@ -47,7 +48,8 @@ class ChatAssistenteScreen extends StatelessWidget {
   final String perfil;
   final String uid;
 
-  const ChatAssistenteScreen({super.key, required this.perfil, required this.uid});
+  const ChatAssistenteScreen(
+      {super.key, required this.perfil, required this.uid});
 
   @override
   Widget build(BuildContext context) {
@@ -109,9 +111,9 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
     final ChatController controller = context.watch<ChatController>();
 
     return Scaffold(
-      backgroundColor: const Color(0xffF5F7FA),
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        backgroundColor: const Color(0xff0F172A),
+        backgroundColor: AppTheme.primaryDark,
         foregroundColor: Colors.white,
         title: const Text("Assistente Logístico"),
         actions: [
@@ -131,16 +133,18 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
             child: controller.conversaVazia
                 ? _estadoInicial(controller)
                 : ListView.builder(
-              controller: _scrollCtrl,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: controller.mensagens.length + (controller.enviando ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= controller.mensagens.length) {
-                  return _indicadorConsultando();
-                }
-                return _bloco(controller.mensagens[index]);
-              },
-            ),
+                    controller: _scrollCtrl,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    itemCount: controller.mensagens.length +
+                        (controller.enviando ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index >= controller.mensagens.length) {
+                        return _indicadorConsultando();
+                      }
+                      return _bloco(controller.mensagens[index]);
+                    },
+                  ),
           ),
           if (!controller.conversaVazia) _faixaSugestoes(controller),
           _barraEnvio(controller),
@@ -163,7 +167,8 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
               color: Colors.orange.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.support_agent, color: Colors.orange, size: 20),
+            child:
+                const Icon(Icons.support_agent, color: Colors.orange, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -172,7 +177,10 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
               children: [
                 Text(
                   "Consultando dados de: ${_rotuloPerfil(perfil)}",
-                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 2),
                 const Text(
@@ -218,12 +226,16 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
                   color: Colors.orange.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.insights, size: 36, color: Colors.orange),
+                child:
+                    const Icon(Icons.insights, size: 36, color: Colors.orange),
               ),
               const SizedBox(height: 12),
               const Text(
                 "Como posso ajudar na operação?",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xff0F172A)),
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xff0F172A)),
               ),
               const SizedBox(height: 4),
               const Padding(
@@ -241,19 +253,26 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
         if (sugestoes.isNotEmpty) ...[
           const Text(
             "Consultas rápidas",
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xff334155)),
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xff334155)),
           ),
           const SizedBox(height: 8),
           ...sugestoes.map(
-                (s) => Card(
+            (s) => Card(
               color: Colors.white,
               elevation: 1,
               margin: const EdgeInsets.symmetric(vertical: 4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               child: ListTile(
                 leading: const Icon(Icons.bolt, color: Colors.orange, size: 20),
-                title: Text(s, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                trailing: const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                title: Text(s,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500)),
+                trailing: const Icon(Icons.chevron_right,
+                    size: 18, color: Colors.grey),
                 onTap: () => _enviar(controller, s),
               ),
             ),
@@ -282,7 +301,8 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
             avatar: const Icon(Icons.bolt, size: 14, color: Colors.orange),
             backgroundColor: Colors.white,
             side: const BorderSide(color: Color(0xffE2E8F0)),
-            onPressed: controller.enviando ? null : () => _enviar(controller, s),
+            onPressed:
+                controller.enviando ? null : () => _enviar(controller, s),
           );
         },
       ),
@@ -303,7 +323,8 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
           ),
           child: Text(
             mensagem.texto,
-            style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.35),
+            style: const TextStyle(
+                color: Colors.white, fontSize: 13, height: 1.35),
           ),
         ),
       );
@@ -326,18 +347,21 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
         children: [
           Row(
             children: [
-              Icon(erro ? Icons.error_outline : Icons.support_agent, size: 15, color: destaque),
+              Icon(erro ? Icons.error_outline : Icons.support_agent,
+                  size: 15, color: destaque),
               const SizedBox(width: 6),
               Text(
                 erro ? "Não foi possível responder" : "Assistente",
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: destaque),
+                style: TextStyle(
+                    fontSize: 11, fontWeight: FontWeight.bold, color: destaque),
               ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             mensagem.texto,
-            style: const TextStyle(fontSize: 13, color: Color(0xff334155), height: 1.45),
+            style: const TextStyle(
+                fontSize: 13, color: Color(0xff334155), height: 1.45),
           ),
         ],
       ),
@@ -359,12 +383,14 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
           SizedBox(
             height: 14,
             width: 14,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
+            child:
+                CircularProgressIndicator(strokeWidth: 2, color: Colors.orange),
           ),
           SizedBox(width: 10),
           Text(
             "Consultando os dados da operação...",
-            style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+            style: TextStyle(
+                fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
           ),
         ],
       ),
@@ -397,7 +423,8 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
                   hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
                   filled: true,
                   fillColor: const Color(0xffF5F7FA),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -407,11 +434,15 @@ class _ChatAssistenteViewState extends State<_ChatAssistenteView> {
             ),
             const SizedBox(width: 8),
             Material(
-              color: controller.enviando ? Colors.grey.shade400 : const Color(0xff0F172A),
+              color: controller.enviando
+                  ? Colors.grey.shade400
+                  : const Color(0xff0F172A),
               borderRadius: BorderRadius.circular(12),
               child: InkWell(
                 borderRadius: BorderRadius.circular(12),
-                onTap: controller.enviando ? null : () => _enviar(controller, _campoCtrl.text),
+                onTap: controller.enviando
+                    ? null
+                    : () => _enviar(controller, _campoCtrl.text),
                 child: const Padding(
                   padding: EdgeInsets.all(12),
                   child: Icon(Icons.send, color: Colors.white, size: 20),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../controllers/dashboard_controller.dart';
 import '../controllers/auth_controller.dart';
+import '../theme/app_theme.dart';
 import 'chat_assistente.dart';
 import 'login.dart';
 
@@ -20,7 +21,8 @@ class _DashboardClienteState extends State<DashboardCliente> {
 
   @override
   Widget build(BuildContext context) {
-    final DashboardController? controller = context.watch<DashboardController?>();
+    final DashboardController? controller =
+        context.watch<DashboardController?>();
     final authController = context.read<AuthController>();
 
     if (controller == null) {
@@ -32,7 +34,8 @@ class _DashboardClienteState extends State<DashboardCliente> {
     if (!_dadosInicializados && !controller.carregando) {
       _dadosInicializados = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final String? empresaId = authController.empresaIdLogada ?? FirebaseAuth.instance.currentUser?.uid;
+        final String? empresaId = authController.empresaIdLogada ??
+            FirebaseAuth.instance.currentUser?.uid;
         if (empresaId != null) {
           await controller.inicializarDados(empresaId);
         }
@@ -46,7 +49,8 @@ class _DashboardClienteState extends State<DashboardCliente> {
     final String userEmail = FirebaseAuth.instance.currentUser?.email ?? "";
 
     // 👥 Filtragem de entregas via controller
-    final List<Map<String, dynamic>> minhasEntregas = controller.entregas.toList();
+    final List<Map<String, dynamic>> minhasEntregas =
+        controller.entregas.toList();
 
     // Prioridade de ordenação do status
     const Map<String, int> prioridadeStatus = {
@@ -61,13 +65,14 @@ class _DashboardClienteState extends State<DashboardCliente> {
       final int pa = prioridadeStatus[a['status']] ?? 4;
       final int pb = prioridadeStatus[b['status']] ?? 4;
       if (pa != pb) return pa.compareTo(pb);
-      return ((a['ordemEntrega'] ?? 0) as num).compareTo((b['ordemEntrega'] ?? 0) as num);
+      return ((a['ordemEntrega'] ?? 0) as num)
+          .compareTo((b['ordemEntrega'] ?? 0) as num);
     });
 
     return Scaffold(
-      backgroundColor: const Color(0xffF5F7FA),
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        backgroundColor: const Color(0xff0F172A),
+        backgroundColor: AppTheme.primaryDark,
         foregroundColor: Colors.white,
         title: const Text("SmartLog - Minhas Entregas"),
       ),
@@ -75,25 +80,34 @@ class _DashboardClienteState extends State<DashboardCliente> {
         child: Column(
           children: [
             DrawerHeader(
-              decoration: const BoxDecoration(color: Color(0xff0F172A)),
+              decoration: const BoxDecoration(color: AppTheme.primaryDark),
               child: SizedBox(
                 width: double.infinity,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.business, size: 44, color: Colors.orange),
+                    const Icon(Icons.local_shipping_rounded,
+                        size: 44, color: AppTheme.accentOrange),
                     const SizedBox(height: 12),
-                    const Text("SmartLog Cliente", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    const Text("SmartLog Cliente",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold)),
                     const SizedBox(height: 2),
                     Text(
                       nomeCliente.isEmpty ? "Cliente Corporativo" : nomeCliente,
-                      style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.w500),
+                      style: const TextStyle(
+                          color: Color(0xFFFFB082),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       userEmail,
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -102,13 +116,16 @@ class _DashboardClienteState extends State<DashboardCliente> {
               ),
             ),
             const ListTile(
-              leading: Icon(Icons.inventory_2, color: Colors.orange),
-              title: Text("Minhas Entregas", style: TextStyle(fontWeight: FontWeight.bold)),
+              leading: Icon(Icons.inventory_2, color: AppTheme.accentOrange),
+              title: Text("Minhas Entregas",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               selected: true,
             ),
             ListTile(
-              leading: const Icon(Icons.support_agent, color: Colors.orange),
-              title: const Text("Assistente IA", style: TextStyle(fontWeight: FontWeight.w500)),
+              leading:
+                  const Icon(Icons.support_agent, color: AppTheme.accentOrange),
+              title: const Text("Assistente IA",
+                  style: TextStyle(fontWeight: FontWeight.w500)),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.of(context).push(MaterialPageRoute(
@@ -123,12 +140,15 @@ class _DashboardClienteState extends State<DashboardCliente> {
             const Divider(),
             ListTile(
               leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text("Deslogar", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+              title: const Text("Deslogar",
+                  style: TextStyle(
+                      color: Colors.redAccent, fontWeight: FontWeight.bold)),
               onTap: () async {
                 final NavigatorState navegador = Navigator.of(context);
                 await authController.realizarLogout();
                 if (!mounted) return;
-                navegador.pushReplacement(MaterialPageRoute(builder: (_) => const TelaLogin()));
+                navegador.pushReplacement(
+                    MaterialPageRoute(builder: (_) => const TelaLogin()));
               },
             ),
             const SizedBox(height: 12),
@@ -143,71 +163,90 @@ class _DashboardClienteState extends State<DashboardCliente> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("Acompanhe seus Pedidos", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xff0F172A))),
+                const Text("Acompanhe seus Pedidos",
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xff0F172A))),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.15),
+                    color: AppTheme.accentOrangeLight,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    minhasEntregas.length == 1 ? "1 entrega" : "${minhasEntregas.length} entregas",
-                    style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                    minhasEntregas.length == 1
+                        ? "1 entrega"
+                        : "${minhasEntregas.length} entregas",
+                    style: const TextStyle(
+                        color: AppTheme.accentOrangeDark,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12),
                   ),
                 )
               ],
             ),
             const SizedBox(height: 16),
-
             Expanded(
               child: (controller.carregando && controller.entregas.isEmpty)
                   ? const Center(child: CircularProgressIndicator())
                   : RefreshIndicator(
-                color: Colors.orange,
-                onRefresh: () async {
-                  final String? empresaId = authController.empresaIdLogada ?? FirebaseAuth.instance.currentUser?.uid;
-                  if (empresaId != null) {
-                    // inicializarDados é síncrono nesta versão do controller
-                    controller.inicializarDados(empresaId);
-                  }
-                },
-                child: minhasEntregas.isEmpty
-                    ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(
-                      height: 260,
-                      child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey),
-                            SizedBox(height: 8),
-                            Text(
-                              "Nenhuma entrega registrada.",
-                              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                      color: AppTheme.accentOrange,
+                      onRefresh: () async {
+                        final String? empresaId =
+                            authController.empresaIdLogada ??
+                                FirebaseAuth.instance.currentUser?.uid;
+                        if (empresaId != null) {
+                          // inicializarDados é síncrono nesta versão do controller
+                          controller.inicializarDados(empresaId);
+                        }
+                      },
+                      child: minhasEntregas.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: const [
+                                SizedBox(
+                                  height: 260,
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.inventory_2_outlined,
+                                            size: 48, color: Colors.grey),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          "Nenhuma entrega registrada.",
+                                          style: TextStyle(
+                                              color: Colors.grey,
+                                              fontWeight: FontWeight.w500),
+                                        ),
+                                        SizedBox(height: 2),
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 24),
+                                          child: Text(
+                                            "Assim que a transportadora registrar uma entrega para você, ela aparecerá aqui.",
+                                            style: TextStyle(
+                                                color: Colors.grey,
+                                                fontSize: 12),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: minhasEntregas.length,
+                              itemBuilder: (context, index) =>
+                                  _cardEntregaCliente(minhasEntregas[index]),
                             ),
-                            SizedBox(height: 2),
-                            Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 24),
-                              child: Text(
-                                "Assim que a transportadora registrar uma entrega para você, ela aparecerá aqui.",
-                                style: TextStyle(color: Colors.grey, fontSize: 12),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
-                  ],
-                )
-                    : ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  itemCount: minhasEntregas.length,
-                  itemBuilder: (context, index) => _cardEntregaCliente(minhasEntregas[index]),
-                ),
-              ),
             ),
           ],
         ),
@@ -219,7 +258,8 @@ class _DashboardClienteState extends State<DashboardCliente> {
     final String status = (entrega['status'] ?? 'Pendente').toString();
     final Color corStatus = _corDoStatus(status);
     final String motorista = (entrega['motorista'] ?? '').toString().trim();
-    final bool temMotorista = motorista.isNotEmpty && motorista != 'Sem motorista';
+    final bool temMotorista =
+        motorista.isNotEmpty && motorista != 'Sem motorista';
 
     return Card(
       color: Colors.white,
@@ -237,20 +277,28 @@ class _DashboardClienteState extends State<DashboardCliente> {
                 Flexible(
                   child: Text(
                     (entrega['id'] ?? 'Sem código').toString(),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xff0F172A), letterSpacing: 0.5),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Color(0xff0F172A),
+                        letterSpacing: 0.5),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: corStatus.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     status,
-                    style: TextStyle(color: corStatus, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: TextStyle(
+                        color: corStatus,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11),
                   ),
                 ),
               ],
@@ -258,18 +306,20 @@ class _DashboardClienteState extends State<DashboardCliente> {
             const SizedBox(height: 8),
             Text(
               (entrega['endereco'] ?? 'Endereço não informado').toString(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xff334155)),
+              style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: Color(0xff334155)),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 8),
-
             if (temMotorista) ...[
               _linhaInfo(Icons.delivery_dining, "Motorista: $motorista"),
               const SizedBox(height: 4),
             ],
-            _linhaInfo(Icons.place_outlined, "Região: ${entrega['regiao'] ?? 'Não definida'}"),
-
+            _linhaInfo(Icons.place_outlined,
+                "Região: ${entrega['regiao'] ?? 'Não definida'}"),
             const Divider(height: 22, thickness: 0.5),
             _timelineEntrega(status),
           ],
@@ -281,7 +331,8 @@ class _DashboardClienteState extends State<DashboardCliente> {
   Widget _timelineEntrega(String status) {
     const List<String> etapas = ["Pendente", "Em Rota", "Entregue"];
 
-    final int posicao = etapas.indexOf(status == 'A Caminho' ? 'Em Rota' : status);
+    final int posicao =
+        etapas.indexOf(status == 'A Caminho' ? 'Em Rota' : status);
     final int etapaAtual = posicao < 0 ? 0 : posicao;
 
     return Column(
@@ -293,7 +344,9 @@ class _DashboardClienteState extends State<DashboardCliente> {
                 Expanded(
                   child: Container(
                     height: 2,
-                    color: (i <= etapaAtual) ? _corDoStatus(etapas[i]) : Colors.grey.shade300,
+                    color: (i <= etapaAtual)
+                        ? _corDoStatus(etapas[i])
+                        : Colors.grey.shade300,
                   ),
                 ),
               Container(
@@ -301,9 +354,13 @@ class _DashboardClienteState extends State<DashboardCliente> {
                 height: 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: (i <= etapaAtual) ? _corDoStatus(etapas[i]) : Colors.transparent,
+                  color: (i <= etapaAtual)
+                      ? _corDoStatus(etapas[i])
+                      : Colors.transparent,
                   border: Border.all(
-                    color: (i <= etapaAtual) ? _corDoStatus(etapas[i]) : Colors.grey.shade400,
+                    color: (i <= etapaAtual)
+                        ? _corDoStatus(etapas[i])
+                        : Colors.grey.shade400,
                     width: 2,
                   ),
                 ),
@@ -320,11 +377,16 @@ class _DashboardClienteState extends State<DashboardCliente> {
                   etapas[i],
                   textAlign: i == 0
                       ? TextAlign.start
-                      : (i == etapas.length - 1 ? TextAlign.end : TextAlign.center),
+                      : (i == etapas.length - 1
+                          ? TextAlign.end
+                          : TextAlign.center),
                   style: TextStyle(
                     fontSize: 10,
-                    fontWeight: (i == etapaAtual) ? FontWeight.bold : FontWeight.normal,
-                    color: (i <= etapaAtual) ? _corDoStatus(etapas[i]) : Colors.grey,
+                    fontWeight:
+                        (i == etapaAtual) ? FontWeight.bold : FontWeight.normal,
+                    color: (i <= etapaAtual)
+                        ? _corDoStatus(etapas[i])
+                        : Colors.grey,
                   ),
                 ),
               ),
@@ -354,16 +416,16 @@ class _DashboardClienteState extends State<DashboardCliente> {
   Color _corDoStatus(String status) {
     switch (status) {
       case 'Pendente':
-        return Colors.orange;
+        return AppTheme.statusOrange;
       case 'A Caminho':
       case 'Em Rota':
-        return Colors.blue;
+        return AppTheme.statusBlue;
       case 'Entregue':
-        return Colors.green;
+        return AppTheme.statusGreen;
       case 'Atrasada':
-        return Colors.red;
+        return AppTheme.statusRed;
       default:
-        return Colors.grey;
+        return AppTheme.statusGrey;
     }
   }
 }

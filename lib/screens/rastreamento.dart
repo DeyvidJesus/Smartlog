@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../theme/app_theme.dart';
 
 class TelaRastreioPublica extends StatefulWidget {
   final String rotaId;
@@ -19,7 +20,7 @@ class _TelaRastreioPublicaState extends State<TelaRastreioPublica> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("SmartLog • Acompanhar Entrega"),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppTheme.primaryDark,
         foregroundColor: Colors.white,
       ),
       body: StreamBuilder<DocumentSnapshot>(
@@ -45,7 +46,9 @@ class _TelaRastreioPublicaState extends State<TelaRastreioPublica> {
           var loc = data?['localizacaoAtual'];
 
           // Mensagem padrão caso o motorista ainda não tenha iniciado
-          if (loc == null || loc['latitude'] == null || loc['longitude'] == null) {
+          if (loc == null ||
+              loc['latitude'] == null ||
+              loc['longitude'] == null) {
             return Stack(
               children: [
                 const Center(
@@ -55,7 +58,8 @@ class _TelaRastreioPublicaState extends State<TelaRastreioPublica> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-                _buildInfoCard("Aguardando início da rota 📦", Colors.orange),
+                _buildInfoCard(
+                    "Aguardando início da rota 📦", AppTheme.statusOrange),
               ],
             );
           }
@@ -90,7 +94,8 @@ class _TelaRastreioPublicaState extends State<TelaRastreioPublica> {
                 },
               ),
               // Card flutuante com a mensagem para o cliente
-              _buildInfoCard("Sua entrega está perto! 🚚", Colors.green),
+              _buildInfoCard(
+                  "Sua entrega está perto! 🚚", AppTheme.statusGreen),
             ],
           );
         },
@@ -126,7 +131,7 @@ class _TelaRastreioPublicaState extends State<TelaRastreioPublica> {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1E293B),
+                    color: AppTheme.primaryDark,
                   ),
                 ),
               ),
