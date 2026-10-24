@@ -1,5 +1,7 @@
 import '../widgets/driver_road_map.dart';
 import '../widgets/confirm_delivery.dart';
+import '../widgets/report_occurrence.dart';
+import 'delivery_detail.dart';
 import '../widgets/driver_distance_card.dart';
 import '../widgets/voice_assistant.dart';
 import '../services/api_service.dart';
@@ -1440,6 +1442,26 @@ class _DashboardMotoristaState extends State<DashboardMotorista> {
                 _itemDetalheInfo(
                     Icons.info_outline, "Status Atual", statusAtual),
                 const SizedBox(height: 20),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  OutlinedButton.icon(
+                      onPressed: () async {
+                        if (await reportDeliveryOccurrence(ctx, docId) &&
+                            ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                              content:
+                                  Text('Ocorrência registrada na central.')));
+                        }
+                      },
+                      icon: const Icon(Icons.report_problem_outlined),
+                      label: const Text('Registrar ocorrência')),
+                  TextButton.icon(
+                      onPressed: () => Navigator.of(ctx).push(MaterialPageRoute(
+                          builder: (_) =>
+                              DeliveryDetailScreen(deliveryId: docId))),
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      label: const Text('Comprovante e histórico')),
+                ]),
+                const SizedBox(height: 16),
                 const Text(
                   "Atualizar Status da Entrega:",
                   style: TextStyle(
