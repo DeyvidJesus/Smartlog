@@ -7,6 +7,7 @@ import '../controllers/auth_controller.dart';
 import '../theme/app_theme.dart';
 import 'chat_assistente.dart';
 import 'login.dart';
+import 'delivery_detail.dart';
 
 class DashboardCliente extends StatefulWidget {
   const DashboardCliente({super.key});
@@ -322,6 +323,19 @@ class _DashboardClienteState extends State<DashboardCliente> {
                 "Região: ${entrega['regiao'] ?? 'Não definida'}"),
             const Divider(height: 22, thickness: 0.5),
             _timelineEntrega(status),
+            const SizedBox(height: 12),
+            SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: entrega['docId'] == null
+                      ? null
+                      : () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => DeliveryDetailScreen(
+                              deliveryId: entrega['docId'].toString(),
+                              canShare: true))),
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const Text('Acompanhar e ver comprovante'),
+                )),
           ],
         ),
       ),
