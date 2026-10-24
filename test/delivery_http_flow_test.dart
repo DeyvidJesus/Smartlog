@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:smartlife/services/delivery_experience_service.dart';
 import 'package:smartlife/services/api_service.dart';
+import 'package:smartlife/services/chat_service.dart';
+import 'support/chat_auth.dart';
 
 void main() {
   test(
@@ -47,5 +49,12 @@ void main() {
     expect(public['comprovante']['recebedor'], 'Maria Teste');
     expect(public.containsKey('empresaId'), false);
     expect(public.containsKey('latitude'), false);
+    final chat = ChatService(auth: ChatTestAuth('integration-driver'));
+    final answer = await chat.perguntar(
+        uid: 'ignored',
+        perfil: 'MOTORISTA',
+        pergunta: 'Qual o status da ENT-E2E?');
+    expect(answer.sucesso, true);
+    expect(answer.texto, contains('ENT-E2E: ENTREGUE'));
   }, skip: !const bool.fromEnvironment('SMARTLOG_INTEGRATION'));
 }
